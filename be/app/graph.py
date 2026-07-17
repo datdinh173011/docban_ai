@@ -92,7 +92,15 @@ def is_procedure_follow_up(message: str) -> bool:
 
 
 def is_birth_follow_up(message: str) -> bool:
-    return is_procedure_follow_up(message)
+    if is_procedure_follow_up(message):
+        return True
+    lowered = message.lower().strip()
+    birth_context_terms = (
+        "bé sinh", "sinh tại", "sinh ở", "trong nước", "nước ngoài",
+        "cha mẹ", "người việt", "người nước ngoài", "quốc tịch",
+        "kết hôn", "chưa kết hôn", "nộp trực tiếp", "trực tuyến",
+    )
+    return any(term in lowered for term in birth_context_terms)
 
 
 def score_evidence(chunks: list[RetrievedChunk], claim_count: int) -> tuple[float, str, list[str]]:
@@ -135,7 +143,13 @@ def build_graph(
                 "active_scenario_code": None,
                 "context_origin": "out_of_scope",
             }
-        if state.get("active_procedure_code") in PROCEDURE_TERMS and is_procedure_follow_up(message):
+        active_procedure_code = state.get("active_procedure_code")
+        is_follow_up = (
+            is_birth_follow_up(message)
+            if active_procedure_code == "BIRTH_REGISTRATION"
+            else is_procedure_follow_up(message)
+        )
+        if active_procedure_code in PROCEDURE_TERMS and is_follow_up:
             return {
                 "retrieval_plan": {
                     **(resolve_procedure(message) or {}),

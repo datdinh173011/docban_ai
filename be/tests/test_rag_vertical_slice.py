@@ -190,6 +190,30 @@ async def test_birth_follow_up_uses_active_procedure_context() -> None:
 
 
 @pytest.mark.asyncio
+async def test_birth_context_answer_uses_active_procedure_context() -> None:
+    llm = FakeLlmClient()
+    rag = FakeRagService([])
+    graph = build_graph(llm, rag, FakeStructuredQuery(), FakeExternalSearchAdapter(), False)
+
+    first = await graph.ainvoke({
+        "messages": [{"role": "user", "content": "Tôi muốn đăng ký khai sinh cho bé"}],
+        "language_code": "vi",
+        "external_search_consent": False,
+    })
+    follow_up = await graph.ainvoke({
+        "messages": [{"role": "user", "content": "Bé sinh tại Việt Nam, cha mẹ là người Việt"}],
+        "language_code": "vi",
+        "active_procedure_code": first["active_procedure_code"],
+        "active_scenario_code": first["active_scenario_code"],
+        "external_search_consent": False,
+    })
+
+    assert follow_up["context_origin"] == "follow_up"
+    assert follow_up["intent"] == "procedure_guidance"
+    assert len(rag.calls) == 2
+
+
+@pytest.mark.asyncio
 async def test_unrelated_message_does_not_retrieve_or_clear_active_birth_context() -> None:
     rag = FakeRagService([])
     graph = build_graph(FakeLlmClient(), rag, FakeStructuredQuery(), FakeExternalSearchAdapter(), False)
