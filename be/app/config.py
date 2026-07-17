@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,6 +14,7 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str = ""
     llm_model: str = ""
+    environment: Literal["LOCAL", "PRODUCTION"] = "PRODUCTION"
     llm_debug_logging: bool = False
     embedding_base_url: str = "https://api.openai.com/v1"
     embedding_api_key: str = ""
@@ -22,7 +24,7 @@ class Settings(BaseSettings):
     external_search_timeout_seconds: int = 10
     external_search_result_limit: int = 5
     external_search_allowed_domains: str = ""
-    database_url: str = "postgresql+asyncpg://icivi:icivi_dev_only@localhost:5432/icivi"
+    database_url: str = ""
     knowledge_data_dir: Path = Path("data")
     retrieval_limit: int = 6
     redis_url: str = "redis://localhost:6379/0"
