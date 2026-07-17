@@ -4,6 +4,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.config import Settings
 from app.main import create_app
+from app.schemas import ChatRequest
 
 
 @pytest.fixture
@@ -55,3 +56,7 @@ async def test_delete_session_clears_cookie(app) -> None:
             response = await client.delete("/api/v1/sessions/current")
     assert response.status_code == 204
     assert "max-age=0" in response.headers["set-cookie"].lower()
+
+
+def test_chat_request_no_longer_exposes_external_llm_consent() -> None:
+    assert "external_llm_consent" not in ChatRequest.model_fields

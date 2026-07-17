@@ -12,8 +12,13 @@ from fastapi.responses import StreamingResponse
 from redis.asyncio import Redis
 
 from app.config import Settings, get_settings
+from app.db import create_database_engine
+from app.embeddings import EmbeddingClient
+from app.external_search import DisabledExternalSearchAdapter
 from app.graph import build_graph
 from app.llm import OpenAICompatibleClient
+from app.rag import RagService
+from app.structured_query import StructuredQueryService
 from app.logging_config import configure_logging
 from app.schemas import ChatRequest
 from app.session_store import SessionStore
@@ -37,8 +42,17 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         configure_logging()
         app.state.redis = redis_client or Redis.from_url(settings.redis_url, decode_responses=True)
         app.state.store = SessionStore(app.state.redis, settings.session_ttl_seconds)
-        app.state.graph = build_graph(OpenAICompatibleClient(settings))
+        app.state.database = create_database_engine(settings)
+        app.state.graph = build_graph(
+            OpenAICompatibleClient(settings),
+            RagService(app.state.database, EmbeddingClient(settings), settings.retrieval_limit),
+            StructuredQueryService(app.state.database),
+            DisabledExternalSearchAdapter(),
+            settings.external_search_enabled,
+            settings.llm_debug_logging,
+        )
         yield
+        await app.state.database.dispose()
         if redis_client is None:
             await app.state.redis.aclose()
 
@@ -101,9 +115,19 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
             started = time.perf_counter()
             try:
                 messages = [*state.get("messages", []), {"role": "user", "content": chat_request.message}]
-                result = await app.state.graph.ainvoke(
-                    {"messages": messages, "language_code": chat_request.language_code, "intent": state.get("intent", "general")}
-                )
+                external_search_consent = state.get("external_search_consent", False)
+                if chat_request.external_search_consent is not None:
+                    external_search_consent = chat_request.external_search_consent
+                result = await app.state.graph.ainvoke({
+                    "messages": messages,
+                    "request_id": request_id,
+                    "language_code": chat_request.language_code,
+                    "intent": state.get("intent", "general"),
+                    "external_search_consent": external_search_consent,
+                    "administrative_area_code": state.get("administrative_area_code"),
+                    "retrieved_chunks": [],
+                    "citations": [],
+                })
                 reply = result["reply"]
                 for word in reply.answer.split(" "):
                     yield sse("message.delta", {"text": f"{word} "})
@@ -112,9 +136,20 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     "messages": [*messages, {"role": "assistant", "content": reply.answer}][-12:],
                     "language_code": chat_request.language_code,
                     "intent": reply.intent,
+                    "external_search_consent": external_search_consent,
                 }
                 await app.state.store.save(current_session_id, new_state)
-                yield sse("message.complete", {"intent": reply.intent, "quick_replies": reply.quick_replies})
+                yield sse("message.complete", {
+                    "intent": reply.intent,
+                    "quick_replies": reply.quick_replies,
+                    "citations": result.get("citations", []),
+                    "answer_strategy": reply.answer_strategy,
+                    "confidence_score": reply.confidence_score,
+                    "confidence_band": reply.confidence_band,
+                    "confidence_reasons": reply.confidence_reasons,
+                    "external_search_used": reply.external_search_used,
+                    "external_search_consent_required": reply.external_search_consent_required,
+                })
                 logger.info("chat_complete request_id=%s session=%s latency_ms=%d", request_id, session_hash(current_session_id), (time.perf_counter() - started) * 1000)
             except Exception as exc:  # Keep the SSE connection protocol stable for clients.
                 logger.exception("chat_error request_id=%s session=%s error=%s", request_id, session_hash(current_session_id), type(exc).__name__)
