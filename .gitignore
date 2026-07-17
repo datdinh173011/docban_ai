@@ -232,6 +232,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.db.env
+be/.env
+fe/.env
 #.env*.local
 
 # vercel
