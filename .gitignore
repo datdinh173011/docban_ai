@@ -244,3 +244,8 @@ fe/.env
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+fe/node_modules/
+fe/dist/
+fe/vite.config.js
+fe/vite.config.d.ts
