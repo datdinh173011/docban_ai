@@ -1,0 +1,20 @@
+{
+  "package_code": "PERMANENT_RESIDENCE",
+  "version_no": 1,
+  "procedure_code": "PERMANENT_RESIDENCE",
+  "scenario_code": "STANDARD",
+  "expected_scenarios": ["STANDARD"],
+  "documents": [
+    {"document_code": "PERMANENT_RESIDENCE_LAW_V1", "source_code": "LAW_RESIDENCE_2020"},
+    {"document_code": "PERMANENT_RESIDENCE_DECREE_62_V1", "source_code": "DECREE_62_2021_ND_CP"}
+  ],
+  "procedure_facts": [
+    {
+      "claim_id": "permanent_residence_legal_basis",
+      "fact_type": "legal_basis",
+      "value": {"text": "Luật Cư trú là căn cứ pháp lý quốc gia của gói kiến thức đăng ký thường trú V1."},
+      "source_code": "LAW_RESIDENCE_2020",
+      "section_reference": "Toàn văn Luật Cư trú"
+    }
+  ]
+}

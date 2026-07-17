@@ -1,0 +1,18 @@
+{
+  "document_code": "BIRTH_REGISTRATION_LAW_2014_V1",
+  "procedure_code": "BIRTH_REGISTRATION",
+  "procedure_title": "Đăng ký khai sinh",
+  "document_type": "legal",
+  "source_file": "law-on-civil-status.pdf",
+  "source": {
+    "source_code": "LAW_CIVIL_STATUS_2014",
+    "source_type": "law",
+    "title_vi": "Luật Hộ tịch",
+    "document_number": "60/2014/QH13",
+    "issuing_authority_vi": "Quốc hội",
+    "source_name": "Nguồn pháp luật chính thức",
+    "source_url": "https://vanban.chinhphu.vn/",
+    "issued_date": "2014-11-20",
+    "effective_from": "2016-01-01"
+  }
+}

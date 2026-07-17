@@ -16,7 +16,14 @@ class SessionStore:
 
     async def create(self) -> str:
         session_id = secrets.token_urlsafe(32)
-        state = {"messages": [], "language_code": "vi", "intent": "general"}
+        state = {
+            "messages": [],
+            "language_code": "vi",
+            "intent": "general",
+            "active_procedure_code": None,
+            "active_scenario_code": None,
+            "external_search_consent": False,
+        }
         await self.redis.set(self.key(session_id), json.dumps(state), ex=self.ttl_seconds)
         return session_id
 

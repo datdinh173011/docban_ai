@@ -13,6 +13,12 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    volumes:
+      - .:/app
+      - knowledge_data:/app/data
+      - ../docs/form_data:/sources/forms:ro
+      - ./data/registry:/templates/registry:ro
+      - ./data/packages:/templates/packages:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 5s
@@ -26,8 +32,10 @@ services:
         required: false
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "15432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U icivi -d icivi"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -43,3 +51,4 @@ services:
 
 volumes:
   postgres_data:
+  knowledge_data:

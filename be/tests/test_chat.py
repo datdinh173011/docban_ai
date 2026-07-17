@@ -4,12 +4,15 @@ from httpx import ASGITransport, AsyncClient
 
 from app.config import Settings
 from app.main import create_app
+from app.schemas import ChatRequest
+
+TEST_DATABASE_URL = "postgresql+asyncpg://test:test@localhost:5432/test"
 
 
 @pytest.fixture
 def app():
     return create_app(
-        Settings(llm_api_key="", llm_model="", session_ttl_seconds=1800),
+        Settings(llm_api_key="", llm_model="", session_ttl_seconds=1800, database_url=TEST_DATABASE_URL),
         FakeRedis(decode_responses=True),
     )
 
@@ -27,7 +30,7 @@ async def test_session_cookie_is_http_only(app) -> None:
 @pytest.mark.asyncio
 async def test_session_cookie_is_secure_when_enabled() -> None:
     app = create_app(
-        Settings(llm_api_key="", llm_model="", session_cookie_secure=True),
+        Settings(llm_api_key="", llm_model="", session_cookie_secure=True, database_url=TEST_DATABASE_URL),
         FakeRedis(decode_responses=True),
     )
     async with app.router.lifespan_context(app):
@@ -55,3 +58,7 @@ async def test_delete_session_clears_cookie(app) -> None:
             response = await client.delete("/api/v1/sessions/current")
     assert response.status_code == 204
     assert "max-age=0" in response.headers["set-cookie"].lower()
+
+
+def test_chat_request_no_longer_exposes_external_llm_consent() -> None:
+    assert "external_llm_consent" not in ChatRequest.model_fields

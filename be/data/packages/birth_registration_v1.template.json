@@ -1,0 +1,20 @@
+{
+  "package_code": "BIRTH_REGISTRATION",
+  "version_no": 1,
+  "procedure_code": "BIRTH_REGISTRATION",
+  "scenario_code": "STANDARD",
+  "expected_scenarios": ["STANDARD"],
+  "documents": [
+    {"document_code": "BIRTH_REGISTRATION_LAW_V1", "source_code": "LAW_CIVIL_STATUS_2014"},
+    {"document_code": "BIRTH_REGISTRATION_DECREE_123_V1", "source_code": "DECREE_123_2015_ND_CP"}
+  ],
+  "procedure_facts": [
+    {
+      "claim_id": "birth_registration_legal_basis",
+      "fact_type": "legal_basis",
+      "value": {"text": "Luật Hộ tịch là căn cứ pháp lý quốc gia của gói kiến thức đăng ký khai sinh V1."},
+      "source_code": "LAW_CIVIL_STATUS_2014",
+      "section_reference": "Toàn văn Luật Hộ tịch"
+    }
+  ]
+}
