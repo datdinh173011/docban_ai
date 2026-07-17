@@ -233,6 +233,7 @@ yarn-error.log*
 
 # local env files
 .db.env
+be/.db.env
 be/.env
 fe/.env
 #.env*.local
