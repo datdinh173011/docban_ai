@@ -40,4 +40,28 @@ describe("App", () => {
     fireEvent.click(screen.getByText(/Rà soát & Kiểm tra đơn/));
     expect(screen.getByText("Rà soát đơn đang được chuẩn bị")).toBeInTheDocument();
   });
+
+  it("updates the selected language and closes the menu", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /chọn ngôn ngữ/i }));
+    fireEvent.click(screen.getByRole("option", { name: /english/i }));
+
+    expect(screen.getByRole("button", { name: /hiện tại english/i })).toBeInTheDocument();
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("closes the language menu when clicking outside or pressing Escape", () => {
+    render(<App />);
+    const languageButton = screen.getByRole("button", { name: /chọn ngôn ngữ/i });
+
+    fireEvent.click(languageButton);
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+    fireEvent.click(languageButton);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
 });

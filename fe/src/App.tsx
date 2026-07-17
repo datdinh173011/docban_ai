@@ -28,6 +28,7 @@ export function App() {
   const [streaming, setStreaming] = useState(false);
   const [reviewTab, setReviewTab] = useState(false);
   const streamRef = useRef<HTMLDivElement>(null);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
   const isChatting = messages.length > 0;
 
   useEffect(() => {
@@ -38,6 +39,25 @@ export function App() {
     const stream = streamRef.current;
     if (stream) stream.scrollTop = stream.scrollHeight;
   }, [messages, streaming]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function closeWhenClickingOutside(event: PointerEvent) {
+      if (!languageMenuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+
+    document.addEventListener("pointerdown", closeWhenClickingOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeWhenClickingOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
 
   async function send(text = input) {
     const message = text.trim();
@@ -90,14 +110,25 @@ export function App() {
             <div className="brand">
               <span className="logo" aria-hidden="true">&#10022;</span>
               <div>
-                <h1>CIVI <span>· Trợ lý Hành chính công AI</span></h1>
+                <h1>ICIVI <span>· Trợ lý Hành chính công AI</span></h1>
                 <div className="meta-row">
-                  <div className="language">
-                    <button className="language-button" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
-                      🌐 {language.label} <span>⌄</span>
+                  <div className="language" ref={languageMenuRef}>
+                    <button
+                      aria-controls="language-menu"
+                      aria-expanded={menuOpen}
+                      aria-haspopup="listbox"
+                      aria-label={`Chọn ngôn ngữ, hiện tại ${language.label}`}
+                      className="language-button"
+                      onClick={() => setMenuOpen((open) => !open)}
+                      type="button"
+                    >
+                      <span className="language-current">{language.label}</span>
+                      <svg aria-hidden="true" className="language-chevron" viewBox="0 0 16 16">
+                        <path d="m4 6 4 4 4-4" />
+                      </svg>
                     </button>
-                    {menuOpen && <div className="language-menu" role="listbox">
-                      {languages.map((item) => <button key={item.code} className={item.code === language.code ? "selected" : ""} onClick={() => { setLanguage(item); setMenuOpen(false); }}>{item.label}</button>)}
+                    {menuOpen && <div aria-label="Danh sách ngôn ngữ" className="language-menu" id="language-menu" role="listbox">
+                      {languages.map((item) => <button aria-selected={item.code === language.code} className={item.code === language.code ? "selected" : ""} key={item.code} onClick={() => { setLanguage(item); setMenuOpen(false); }} role="option" type="button"><span className="language-code">{item.code}</span>{item.label}</button>)}
                     </div>}
                   </div>
                   <span className="status">Hệ thống trực tuyến 24/7</span>
@@ -108,7 +139,7 @@ export function App() {
           </div>
         </header>
 
-        <nav className="tabs" aria-label="Chức năng CIVI">
+        <nav className="tabs" aria-label="Chức năng ICIVI">
           <div className="tabs-rail">
             <button className={!reviewTab ? "active" : ""} onClick={() => setReviewTab(false)}>💬 Trò chuyện &amp; Khai đơn</button>
             <button className={reviewTab ? "active" : ""} onClick={() => setReviewTab(true)}>📄 Rà soát &amp; Kiểm tra đơn</button>
@@ -117,7 +148,7 @@ export function App() {
       </div>
 
       {reviewTab ? <main className="review-placeholder"><span aria-hidden="true">📄</span><h2>Rà soát đơn đang được chuẩn bị</h2><p>Tính năng kiểm tra biểu mẫu và tài liệu chính thức sẽ được bổ sung trong giai đoạn tiếp theo.</p><button onClick={() => setReviewTab(false)}>Quay lại trò chuyện</button></main> : <main className="conversation">
-        {!isChatting ? <section className="welcome"><span className="mascot" aria-hidden="true">✦</span><h2>Xin chào! Tôi là <em>CIVI</em> 👋</h2><p>Tôi giúp bạn bắt đầu tìm hiểu thủ tục hành chính bằng ngôn ngữ tự nhiên.</p><form className="input-wrap welcome-input" onSubmit={submit}><input aria-label="Nội dung cần hỗ trợ" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ví dụ: Tôi muốn đăng ký cho con vào lớp 1..." /><button aria-label="Gửi yêu cầu" type="submit">➤</button></form><div className="suggestions">{suggestions.map((item, index) => <button className={index === 0 ? "primary" : ""} key={item} onClick={() => void send(item)}>{item}</button>)}</div><p className="privacy">🔒 Nội dung chỉ được dùng trong phiên hiện tại.</p></section> : <><button className="back" onClick={() => void reset()}>← Bắt đầu phiên mới</button><section className="stream" ref={streamRef} data-testid="message-stream" aria-live="polite">{messages.map((message) => <article key={message.id} className={`message ${message.role}`}><div className="speaker">{message.role === "assistant" ? "✦ Trợ lý CIVI" : "Bạn"}</div><p>{message.content || ""}</p>{message.quickReplies && message.quickReplies.length > 0 && <div className="quick-replies">{message.quickReplies.map((reply) => <button key={reply} onClick={() => void send(reply)}>{reply}</button>)}</div>}</article>)}{streaming && <div className="typing" aria-label="CIVI đang trả lời"><i /><i /><i /></div>}</section><form className="input-bar" onSubmit={submit}><div className="input-wrap"><input aria-label="Nhập câu hỏi" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Nhập câu trả lời hoặc đặt câu hỏi..." disabled={streaming} /><button aria-label="Gửi tin nhắn" type="submit" disabled={streaming}>➤</button></div></form></>}
+        {!isChatting ? <section className="welcome"><span className="mascot" aria-hidden="true">✦</span><h2>Xin chào! Tôi là <em>ICIVI</em> 👋</h2><p>Tôi giúp bạn bắt đầu tìm hiểu thủ tục hành chính bằng ngôn ngữ tự nhiên.</p><form className="input-wrap welcome-input" onSubmit={submit}><input aria-label="Nội dung cần hỗ trợ" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ví dụ: Tôi muốn đăng ký cho con vào lớp 1..." /><button aria-label="Gửi yêu cầu" type="submit">➤</button></form><div className="suggestions">{suggestions.map((item, index) => <button className={index === 0 ? "primary" : ""} key={item} onClick={() => void send(item)}>{item}</button>)}</div><p className="privacy">🔒 Nội dung chỉ được dùng trong phiên hiện tại.</p></section> : <><button className="back" onClick={() => void reset()}>← Bắt đầu phiên mới</button><section className="stream" ref={streamRef} data-testid="message-stream" aria-live="polite">{messages.map((message) => <article key={message.id} className={`message ${message.role}`}><div className="speaker">{message.role === "assistant" ? "✦ Trợ lý ICIVI" : "Bạn"}</div><p>{message.content || ""}</p>{message.quickReplies && message.quickReplies.length > 0 && <div className="quick-replies">{message.quickReplies.map((reply) => <button key={reply} onClick={() => void send(reply)}>{reply}</button>)}</div>}</article>)}{streaming && <div className="typing" aria-label="ICIVI đang trả lời"><i /><i /><i /></div>}</section><form className="input-bar" onSubmit={submit}><div className="input-wrap"><input aria-label="Nhập câu hỏi" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Nhập câu trả lời hoặc đặt câu hỏi..." disabled={streaming} /><button aria-label="Gửi tin nhắn" type="submit" disabled={streaming}>➤</button></div></form></>}
       </main>}
     </div>
   );

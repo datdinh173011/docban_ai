@@ -25,7 +25,7 @@ export async function streamChat(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, language_code: languageCode }),
   });
-  if (!response.ok || !response.body) throw new Error("Không thể kết nối với trợ lý CIVI.");
+  if (!response.ok || !response.body) throw new Error("Không thể kết nối với trợ lý ICIVI.");
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
