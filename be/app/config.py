@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     external_search_timeout_seconds: int = 10
     external_search_result_limit: int = 5
     external_search_allowed_domains: str = ""
-    database_url: str = ""
+    database_url: str = "postgresql+asyncpg://icivi:icivi_dev_only@localhost:5432/icivi"
     knowledge_data_dir: Path = Path("data")
     retrieval_limit: int = 6
     redis_url: str = "redis://localhost:6379/0"

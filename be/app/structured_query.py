@@ -32,7 +32,11 @@ ALLOWED_FACT_TYPES = {
 class StructuredQuerySpec(BaseModel):
     resource: Literal["procedure_fact"] = "procedure_fact"
     fact_types: list[FactType] = Field(min_length=1, max_length=4)
-    procedure_code: Literal["BIRTH_REGISTRATION"]
+    procedure_code: Literal[
+        "BIRTH_REGISTRATION",
+        "PERMANENT_RESIDENCE",
+        "CONSTRUCTION_PERMIT_DETACHED_HOUSE",
+    ]
     limit: int = Field(default=10, ge=1, le=20)
 
     @field_validator("fact_types")
@@ -62,7 +66,7 @@ class StructuredQueryService:
             )
             SELECT pf.id, pf.fact_type, pf.value, pf.jurisdiction_scope,
                    area.area_code AS administrative_area_code,
-                   pf.effective_from, lsv.source_url, ls.source_code,
+                   pf.effective_from, pf.metadata, lsv.source_url, ls.source_code,
                    ls.title_vi AS source_title, ls.document_number
             FROM procedure_fact pf
             JOIN procedure_version pv ON pv.id = pf.procedure_version_id
@@ -72,6 +76,12 @@ class StructuredQueryService:
             LEFT JOIN legal_source ls ON ls.id = lsv.legal_source_id
             WHERE ap.procedure_code = :procedure_code
               AND pv.status = 'published'
+              AND pv.version_no = (
+                  SELECT max(current_version.version_no)
+                  FROM procedure_version current_version
+                  WHERE current_version.procedure_id = pv.procedure_id
+                    AND current_version.status = 'published'
+              )
               AND pf.status = 'published'
               AND (pf.effective_from IS NULL OR pf.effective_from <= CURRENT_DATE)
               AND (pf.effective_to IS NULL OR pf.effective_to >= CURRENT_DATE)
@@ -106,7 +116,7 @@ class StructuredQueryService:
             source_code=row["source_code"] or "PROCEDURE_FACT",
             source_title=source_title,
             document_number=row["document_number"],
-            section_reference=row["fact_type"],
+            section_reference=row["metadata"].get("section_reference", row["fact_type"]),
             source_url=row["source_url"],
             effective_from=row["effective_from"] if isinstance(row["effective_from"], date) else None,
             jurisdiction_scope=row["jurisdiction_scope"],

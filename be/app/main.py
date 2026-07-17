@@ -123,6 +123,8 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     "request_id": request_id,
                     "language_code": chat_request.language_code,
                     "intent": state.get("intent", "general"),
+                    "active_procedure_code": state.get("active_procedure_code"),
+                    "active_scenario_code": state.get("active_scenario_code"),
                     "external_search_consent": external_search_consent,
                     "administrative_area_code": state.get("administrative_area_code"),
                     "retrieved_chunks": [],
@@ -136,6 +138,8 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     "messages": [*messages, {"role": "assistant", "content": reply.answer}][-12:],
                     "language_code": chat_request.language_code,
                     "intent": reply.intent,
+                    "active_procedure_code": result.get("active_procedure_code"),
+                    "active_scenario_code": result.get("active_scenario_code"),
                     "external_search_consent": external_search_consent,
                 }
                 await app.state.store.save(current_session_id, new_state)

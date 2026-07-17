@@ -11,6 +11,7 @@ from app.rag_types import Citation, RetrievedChunk
 
 class FakeResponse:
     status_code = 200
+    headers = {"content-type": "application/json"}
 
     def raise_for_status(self) -> None:
         return None
@@ -83,6 +84,95 @@ async def test_llm_without_evidence_receives_unverified_safety_prompt(monkeypatc
     assert reply.answer == "Câu trả lời tham khảo."
     assert "There is no verified evidence" in prompt
     assert "do not give legal requirements" in prompt
+
+
+@pytest.mark.asyncio
+async def test_llm_truncates_only_excess_quick_replies(monkeypatch, caplog) -> None:
+    class FourRepliesResponse(FakeResponse):
+        def json(self) -> dict:
+            return {"choices": [{"message": {"content": json.dumps({
+                "intent": "general",
+                "answer": "Câu trả lời hợp lệ.",
+                "quick_replies": ["Một", "Hai", "Ba", "Bốn"],
+            })}}]}
+
+    class FourRepliesClient(FakeAsyncClient):
+        async def post(self, url: str, json: dict, headers: dict) -> FakeResponse:
+            return FourRepliesResponse()
+
+    caplog.set_level(logging.INFO, logger="app.llm")
+    monkeypatch.setattr("app.llm.httpx.AsyncClient", FourRepliesClient)
+    client = OpenAICompatibleClient(Settings(llm_api_key="test-key", llm_model="test-model", llm_debug_logging=True))
+
+    reply = await client.reply([{"role": "user", "content": "Hỗ trợ tôi"}], "vi", [])
+
+    assert reply.quick_replies == ["Một", "Hai", "Ba"]
+    assert any("quick_replies_received': 4" in message and "quick_replies_normalized': True" in message for message in caplog.messages)
+
+
+@pytest.mark.asyncio
+async def test_llm_does_not_repair_invalid_quick_reply_type(monkeypatch) -> None:
+    class InvalidRepliesResponse(FakeResponse):
+        def json(self) -> dict:
+            return {"choices": [{"message": {"content": json.dumps({
+                "intent": "general",
+                "answer": "Câu trả lời không hợp lệ.",
+                "quick_replies": "Không phải danh sách",
+            })}}]}
+
+    class InvalidRepliesClient(FakeAsyncClient):
+        async def post(self, url: str, json: dict, headers: dict) -> FakeResponse:
+            return InvalidRepliesResponse()
+
+    monkeypatch.setattr("app.llm.httpx.AsyncClient", InvalidRepliesClient)
+    client = OpenAICompatibleClient(Settings(llm_api_key="test-key", llm_model="test-model"))
+
+    reply = await client.reply([{"role": "user", "content": "Hỗ trợ tôi"}], "vi", [])
+
+    assert reply.intent == "general"
+    assert "chưa có dữ liệu thủ tục" in reply.answer
+
+
+@pytest.mark.asyncio
+async def test_local_transport_requests_non_streaming_json(monkeypatch) -> None:
+    monkeypatch.setattr("app.llm.httpx.AsyncClient", FakeAsyncClient)
+    client = OpenAICompatibleClient(Settings(llm_api_key="test-key", llm_model="test-model", environment="LOCAL"))
+
+    await client.reply([{"role": "user", "content": "Hỗ trợ tôi"}], "vi", [])
+
+    assert FakeAsyncClient.payload["stream"] is False
+
+
+@pytest.mark.asyncio
+async def test_production_transport_does_not_set_local_stream_flag(monkeypatch) -> None:
+    monkeypatch.setattr("app.llm.httpx.AsyncClient", FakeAsyncClient)
+    client = OpenAICompatibleClient(Settings(llm_api_key="test-key", llm_model="test-model", environment="PRODUCTION"))
+
+    await client.reply([{"role": "user", "content": "Hỗ trợ tôi"}], "vi", [])
+
+    assert "stream" not in FakeAsyncClient.payload
+
+
+@pytest.mark.asyncio
+async def test_local_transport_accepts_fenced_json_and_sse(monkeypatch) -> None:
+    class SseResponse(FakeResponse):
+        headers = {"content-type": "text/event-stream"}
+        text = "\n".join([
+            'data: {"choices":[{"delta":{"content":"```json\\n{\\\"intent\\\":\\\"general\\\","}}]}',
+            'data: {"choices":[{"delta":{"content":"\\\"answer\\\":\\\"ok\\\",\\\"quick_replies\\\":[]}\\n```"}}]}',
+            "data: [DONE]",
+        ])
+
+    class SseAsyncClient(FakeAsyncClient):
+        async def post(self, url: str, json: dict, headers: dict) -> FakeResponse:
+            return SseResponse()
+
+    monkeypatch.setattr("app.llm.httpx.AsyncClient", SseAsyncClient)
+    client = OpenAICompatibleClient(Settings(llm_api_key="test-key", llm_model="test-model", environment="LOCAL"))
+
+    reply = await client.reply([{"role": "user", "content": "Hỗ trợ tôi"}], "vi", [])
+
+    assert reply.answer == "ok"
 
 
 @pytest.mark.asyncio

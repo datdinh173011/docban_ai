@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 Band = Literal["high", "medium", "low", "unable_to_verify"]
+EvaluationProfile = Literal["demo", "standard"]
 
 
 class EvaluationCase(BaseModel):
@@ -52,6 +53,7 @@ class EvaluationFailure(BaseModel):
 
 class EvaluationReport(BaseModel):
     package_code: str
+    profile: EvaluationProfile
     case_count: int
     metrics: dict[str, float]
     failures: list[EvaluationFailure]

@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.external_search import ExternalSearchResult, FakeExternalSearchAdapter
-from app.graph import build_graph, resolve_birth_registration, score_evidence
+from app.graph import build_graph, resolve_birth_registration, resolve_procedure, score_evidence
 from app.rag_types import Citation, RetrievedChunk
 from app.schemas import AssistantReply
 from app.structured_query import StructuredQuerySpec
@@ -40,8 +40,29 @@ def test_birth_resolver_returns_structured_retrieval_plan() -> None:
     assert "required_document" in plan["claim_types"]
 
 
+def test_birth_resolver_detects_receiving_authority_question() -> None:
+    plan = resolve_birth_registration("Nộp đăng ký khai sinh ở đâu?")
+
+    assert plan is not None
+    assert "receiving_authority" in plan["claim_types"]
+
+
 def test_unknown_request_does_not_resolve_to_birth_registration() -> None:
     assert resolve_birth_registration("Tôi cần đổi giấy phép lái xe") is None
+
+
+@pytest.mark.parametrize(
+    ("message", "procedure_code"),
+    [
+        ("Tôi cần đăng ký thường trú", "PERMANENT_RESIDENCE"),
+        ("Xin cấp giấy phép xây nhà ở riêng lẻ", "CONSTRUCTION_PERMIT_DETACHED_HOUSE"),
+    ],
+)
+def test_procedure_resolver_supports_other_v1_packages(message: str, procedure_code: str) -> None:
+    plan = resolve_procedure(message)
+
+    assert plan is not None
+    assert plan["procedure_code"] == procedure_code
 
 
 def test_structured_query_rejects_unknown_fact_type_and_large_limit() -> None:
@@ -68,8 +89,10 @@ async def test_fake_external_search_is_deterministic() -> None:
 class FakeRagService:
     def __init__(self, chunks: list[RetrievedChunk]) -> None:
         self.chunks = chunks
+        self.calls: list[str] = []
 
     async def retrieve(self, *args, **kwargs) -> list[RetrievedChunk]:
+        self.calls.append(args[0])
         return self.chunks
 
 
@@ -139,6 +162,65 @@ async def test_graph_calls_llm_for_birth_request_without_evidence_when_external_
     assert len(llm.calls) == 1
     assert result["reply"].answer_strategy == "low"
     assert any("rag_retrieval" in message and "structured_fact_count=0" in message for message in caplog.messages)
+
+
+@pytest.mark.asyncio
+async def test_birth_follow_up_uses_active_procedure_context() -> None:
+    llm = FakeLlmClient()
+    rag = FakeRagService([])
+    graph = build_graph(llm, rag, FakeStructuredQuery(), FakeExternalSearchAdapter(), False)
+
+    first = await graph.ainvoke({
+        "messages": [{"role": "user", "content": "Tôi muốn đăng ký khai sinh cho bé"}],
+        "language_code": "vi",
+        "external_search_consent": False,
+    })
+    follow_up = await graph.ainvoke({
+        "messages": [{"role": "user", "content": "Cần giấy tờ gì?"}],
+        "language_code": "vi",
+        "active_procedure_code": first["active_procedure_code"],
+        "active_scenario_code": first["active_scenario_code"],
+        "external_search_consent": False,
+    })
+
+    assert first["context_origin"] == "explicit"
+    assert follow_up["context_origin"] == "follow_up"
+    assert follow_up["intent"] == "procedure_guidance"
+    assert len(rag.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_unrelated_message_does_not_retrieve_or_clear_active_birth_context() -> None:
+    rag = FakeRagService([])
+    graph = build_graph(FakeLlmClient(), rag, FakeStructuredQuery(), FakeExternalSearchAdapter(), False)
+
+    result = await graph.ainvoke({
+        "messages": [{"role": "user", "content": "Thời tiết hôm nay thế nào?"}],
+        "language_code": "vi",
+        "active_procedure_code": "BIRTH_REGISTRATION",
+        "active_scenario_code": "STANDARD",
+        "external_search_consent": False,
+    })
+
+    assert result["context_origin"] == "out_of_scope"
+    assert result["active_procedure_code"] == "BIRTH_REGISTRATION"
+    assert rag.calls == []
+
+
+@pytest.mark.asyncio
+async def test_explicit_supported_procedure_switches_active_birth_context() -> None:
+    graph = build_graph(FakeLlmClient(), FakeRagService([]), FakeStructuredQuery(), FakeExternalSearchAdapter(), False)
+
+    result = await graph.ainvoke({
+        "messages": [{"role": "user", "content": "Tôi muốn đăng ký thường trú"}],
+        "language_code": "vi",
+        "active_procedure_code": "BIRTH_REGISTRATION",
+        "active_scenario_code": "STANDARD",
+        "external_search_consent": False,
+    })
+
+    assert result["context_origin"] == "explicit"
+    assert result["active_procedure_code"] == "PERMANENT_RESIDENCE"
 
 
 @pytest.mark.asyncio

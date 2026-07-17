@@ -14,6 +14,8 @@ async def test_session_is_created_saved_and_deleted() -> None:
         "messages": [],
         "language_code": "vi",
         "intent": "general",
+        "active_procedure_code": None,
+        "active_scenario_code": None,
         "external_search_consent": False,
     }
 

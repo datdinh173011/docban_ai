@@ -58,14 +58,32 @@ def test_strict_gate_requires_reviewed_seventy_case_distribution() -> None:
     assert any(failure.detail == "production_dataset_distribution_invalid" for failure in report.failures)
 
 
+def test_demo_gate_requires_two_reviewed_birth_cases() -> None:
+    report = evaluate("BIRTH_REGISTRATION", [case()], [observation()], profile="demo")
+
+    assert report.passed is False
+    assert any(failure.detail == "demo_dataset_requires_two_reviewed_birth_cases" for failure in report.failures)
+
+
+def test_demo_gate_rejects_external_legal_authority() -> None:
+    second_case = case("BIRTH-EVAL-002")
+    second_observation = observation("BIRTH-EVAL-002", external_citation_ids=["EXT-1"])
+
+    report = evaluate("BIRTH_REGISTRATION", [case(), second_case], [observation(), second_observation], profile="demo")
+
+    assert report.passed is False
+    assert any(failure.category == "external_authority" for failure in report.failures)
+
+
 def test_fixture_dataset_loads_and_renders_report() -> None:
     from pathlib import Path
 
     path = Path(__file__).parents[1] / "evaluation" / "datasets" / "birth_registration.fixture.jsonl"
     cases, observations = load_records(path)
-    report = evaluate("BIRTH_REGISTRATION", cases, observations)
+    report = evaluate("BIRTH_REGISTRATION", cases, observations, profile="demo")
     rendered = render_markdown(report.model_dump())
     assert report.passed is True
+    assert report.profile == "demo"
     assert "Evaluation Report" in rendered
 
 

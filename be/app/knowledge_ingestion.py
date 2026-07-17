@@ -2,6 +2,8 @@ import hashlib
 import json
 import mimetypes
 import re
+import subprocess
+import tempfile
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -113,8 +115,39 @@ def normalize_bytes(contents: bytes, filename: str, content_type: str | None = N
         from io import BytesIO
 
         reader = PdfReader(BytesIO(contents))
-        return "\n".join(page.extract_text() or "" for page in reader.pages)
+        extracted = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
+        return extracted or ocr_pdf_bytes(contents)
     return contents.decode("utf-8")
+
+
+def ocr_pdf_bytes(contents: bytes) -> str:
+    """Extract scanned official PDFs without retaining temporary page images."""
+    with tempfile.TemporaryDirectory(prefix="icivi-ocr-") as directory:
+        root = Path(directory)
+        pdf_path = root / "source.pdf"
+        pdf_path.write_bytes(contents)
+        prefix = root / "page"
+        try:
+            subprocess.run(
+                ["pdftoppm", "-r", "200", "-png", str(pdf_path), str(prefix)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            pages = sorted(root.glob("page-*.png"))
+            text = [
+                subprocess.run(
+                    ["tesseract", str(page), "stdout", "-l", "vie+eng"],
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                ).stdout
+                for page in pages
+            ]
+        except (OSError, subprocess.CalledProcessError):
+            return ""
+    return "\n".join(text).strip()
 
 
 def chunk_text(normalized_text: str, max_words: int = 420) -> list[ChunkDraft]:

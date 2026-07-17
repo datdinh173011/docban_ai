@@ -62,6 +62,12 @@ class RagService:
                 JOIN administrative_procedure ap ON ap.id = pv.procedure_id
                 LEFT JOIN administrative_area area ON area.id = kd.administrative_area_id
                 WHERE kd.status = 'published' AND lsv.status = 'published' AND pv.status = 'published'
+                  AND pv.version_no = (
+                      SELECT max(current_version.version_no)
+                      FROM procedure_version current_version
+                      WHERE current_version.procedure_id = pv.procedure_id
+                        AND current_version.status = 'published'
+                  )
                   AND kd.language_code = :language_code AND ap.procedure_code = :procedure_code
                   AND (lsv.effective_from IS NULL OR lsv.effective_from <= CURRENT_DATE)
                   AND (lsv.effective_to IS NULL OR lsv.effective_to >= CURRENT_DATE)

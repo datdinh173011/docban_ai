@@ -19,6 +19,9 @@ class ConversationState(TypedDict, total=False):
     messages: list[dict[str, str]]
     language_code: str
     intent: str
+    active_procedure_code: str | None
+    active_scenario_code: str | None
+    context_origin: Literal["explicit", "follow_up", "out_of_scope"]
     reply: AssistantReply
     external_search_consent: bool
     administrative_area_code: str | None
@@ -33,27 +36,63 @@ class ConversationState(TypedDict, total=False):
     hybrid_chunk_count: int
 
 
-def resolve_birth_registration(message: str) -> dict[str, Any] | None:
+PROCEDURE_TERMS = {
+    "BIRTH_REGISTRATION": ("khai sinh", "hộ tịch", "birth registration"),
+    "PERMANENT_RESIDENCE": ("thường trú", "đăng ký cư trú", "đăng ký thường trú"),
+    "CONSTRUCTION_PERMIT_DETACHED_HOUSE": ("giấy phép xây", "cấp phép xây", "xây nhà ở riêng lẻ", "xây dựng nhà ở riêng lẻ"),
+}
+
+
+def resolve_procedure(message: str) -> dict[str, Any] | None:
     lowered = message.lower()
-    if not any(term in lowered for term in ("khai sinh", "hộ tịch", "birth registration")):
+    procedure_code = next(
+        (code for code, terms in PROCEDURE_TERMS.items() if any(term in lowered for term in terms)),
+        None,
+    )
+    if procedure_code is None:
         return None
     fact_types: list[str] = []
     terms = {
-        "required_document": ("giấy tờ", "hồ sơ", "giấy chứng sinh"),
+        "required_document": ("giấy tờ", "hồ sơ", "giấy chứng sinh", "cần gì", "cần những"),
         "processing_time": ("bao lâu", "thời hạn", "ngày"),
         "fee": ("lệ phí", "phí", "chi phí"),
-        "receiving_authority": ("nộp ở đâu", "cơ quan", "ủy ban"),
+        "receiving_authority": ("nộp ở đâu", "ở đâu", "cơ quan", "ủy ban"),
         "legal_basis": ("căn cứ", "nghị định", "luật", "quy định"),
     }
     for fact_type, keywords in terms.items():
         if any(keyword in lowered for keyword in keywords):
             fact_types.append(fact_type)
     return {
-        "procedure_code": "BIRTH_REGISTRATION",
+        "procedure_code": procedure_code,
         "scenario_code": "STANDARD",
         "claim_types": fact_types or ["legal_basis"],
         "retrieval_paths": ["structured_query", "hybrid_rag"],
     }
+
+
+def resolve_birth_registration(message: str) -> dict[str, Any] | None:
+    """Compatibility helper retained for focused birth-registration tests."""
+    plan = resolve_procedure(message)
+    return plan if plan and plan["procedure_code"] == "BIRTH_REGISTRATION" else None
+
+
+def is_unsupported_procedure(message: str) -> bool:
+    lowered = message.lower()
+    return "đổi giấy phép lái xe" in lowered
+
+
+def is_procedure_follow_up(message: str) -> bool:
+    lowered = message.lower().strip()
+    follow_up_terms = (
+        "cần gì", "giấy tờ", "hồ sơ", "giấy chứng sinh", "bao lâu", "thời hạn",
+        "lệ phí", "phí", "nộp ở đâu", "cơ quan", "ủy ban", "quy định", "căn cứ",
+        "điều kiện", "mẫu", "biểu mẫu", "thủ tục",
+    )
+    return any(term in lowered for term in follow_up_terms)
+
+
+def is_birth_follow_up(message: str) -> bool:
+    return is_procedure_follow_up(message)
 
 
 def score_evidence(chunks: list[RetrievedChunk], claim_count: int) -> tuple[float, str, list[str]]:
@@ -78,10 +117,37 @@ def build_graph(
     debug_logging: bool = False,
 ):
     async def resolve(state: ConversationState) -> dict:
-        plan = resolve_birth_registration(state["messages"][-1]["content"])
-        if plan is None:
-            return {"retrieval_plan": {}, "intent": "out_of_scope"}
-        return {"retrieval_plan": plan, "intent": "procedure_guidance"}
+        message = state["messages"][-1]["content"]
+        plan = resolve_procedure(message)
+        if plan is not None:
+            return {
+                "retrieval_plan": plan,
+                "intent": "procedure_guidance",
+                "active_procedure_code": plan["procedure_code"],
+                "active_scenario_code": "STANDARD",
+                "context_origin": "explicit",
+            }
+        if is_unsupported_procedure(message):
+            return {
+                "retrieval_plan": {},
+                "intent": "out_of_scope",
+                "active_procedure_code": None,
+                "active_scenario_code": None,
+                "context_origin": "out_of_scope",
+            }
+        if state.get("active_procedure_code") in PROCEDURE_TERMS and is_procedure_follow_up(message):
+            return {
+                "retrieval_plan": {
+                    **(resolve_procedure(message) or {}),
+                    "procedure_code": state["active_procedure_code"],
+                    "scenario_code": state.get("active_scenario_code") or "STANDARD",
+                    "claim_types": resolve_procedure("khai sinh " + message)["claim_types"],
+                    "retrieval_paths": ["structured_query", "hybrid_rag"],
+                },
+                "intent": "procedure_guidance",
+                "context_origin": "follow_up",
+            }
+        return {"retrieval_plan": {}, "intent": "out_of_scope", "context_origin": "out_of_scope"}
 
     def resolution_route(state: ConversationState) -> str:
         return "retrieve" if state.get("retrieval_plan") else "generate"
@@ -96,7 +162,7 @@ def build_graph(
             fact_types = [value for value in plan["claim_types"] if value in ALLOWED_FACT_TYPES]
             if fact_types:
                 structured_chunks = await structured_query.execute(
-                    StructuredQuerySpec(procedure_code="BIRTH_REGISTRATION", fact_types=fact_types),
+                    StructuredQuerySpec(procedure_code=plan["procedure_code"], fact_types=fact_types),
                     state.get("administrative_area_code"),
                 )
                 chunks.extend(structured_chunks)
@@ -118,7 +184,7 @@ def build_graph(
         if debug_logging:
             logger.info(
                 "rag_retrieval request_id=%s procedure_code=%s structured_fact_count=%s hybrid_chunk_count=%s "
-                "evidence_count=%s confidence_score=%s confidence_band=%s confidence_reasons=%s",
+                "evidence_count=%s confidence_score=%s confidence_band=%s confidence_reasons=%s context_origin=%s",
                 state.get("request_id", "unknown"),
                 plan["procedure_code"],
                 structured_fact_count,
@@ -127,6 +193,7 @@ def build_graph(
                 score,
                 band,
                 reasons,
+                state.get("context_origin", "out_of_scope"),
             )
         return {
             "retrieved_chunks": chunks,
@@ -237,6 +304,7 @@ def build_graph(
             confidence_band=state.get("confidence_band"),
             confidence_reasons=state.get("confidence_reasons", []),
             external_search_used=state.get("external_search_used", False),
+            context_origin=state.get("context_origin", "out_of_scope"),
             structured_fact_count=state.get("structured_fact_count", 0),
             hybrid_chunk_count=state.get("hybrid_chunk_count", 0),
         )

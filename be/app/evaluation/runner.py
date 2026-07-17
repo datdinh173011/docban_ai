@@ -1,4 +1,4 @@
-from app.evaluation.contracts import EvaluationCase, EvaluationFailure, EvaluationObservation, EvaluationReport
+from app.evaluation.contracts import EvaluationCase, EvaluationFailure, EvaluationObservation, EvaluationProfile, EvaluationReport
 from app.evaluation.metrics import brier_score, expected_calibration_error, ratio
 
 PRODUCTION_THRESHOLDS = {
@@ -10,7 +10,13 @@ PRODUCTION_THRESHOLDS = {
 }
 
 
-def evaluate(package_code: str, cases: list[EvaluationCase], observations: list[EvaluationObservation], strict: bool = False) -> EvaluationReport:
+def evaluate(
+    package_code: str,
+    cases: list[EvaluationCase],
+    observations: list[EvaluationObservation],
+    strict: bool = False,
+    profile: EvaluationProfile = "standard",
+) -> EvaluationReport:
     by_case = {observation.case_id: observation for observation in observations}
     failures: list[EvaluationFailure] = []
     recalled = grounded = band_matches = citation_hits = citation_required = 0
@@ -64,7 +70,13 @@ def evaluate(package_code: str, cases: list[EvaluationCase], observations: list[
         "brier_score": brier_score(probabilities, outcomes),
         "ece": expected_calibration_error(probabilities, outcomes),
     }
-    if strict:
+    if profile == "demo":
+        reviewed_cases = sum(case.reviewed for case in cases)
+        if package_code != "BIRTH_REGISTRATION" or len(cases) != 2 or reviewed_cases != 2:
+            failures.append(EvaluationFailure(case_id="DATASET", category="data", detail="demo_dataset_requires_two_reviewed_birth_cases"))
+        if metrics["citation_coverage"] < 1.0:
+            failures.append(EvaluationFailure(case_id="GATE", category="citation", detail="citation_coverage_below_threshold"))
+    elif strict:
         reviewed_cases = sum(case.reviewed for case in cases)
         high = sum(case.expected_band == "high" for case in cases)
         medium = sum(case.expected_band == "medium" for case in cases)
@@ -83,4 +95,4 @@ def evaluate(package_code: str, cases: list[EvaluationCase], observations: list[
             failures.append(EvaluationFailure(case_id="GATE", category="confidence", detail="brier_score_above_threshold"))
         if metrics["ece"] > PRODUCTION_THRESHOLDS["ece_max"]:
             failures.append(EvaluationFailure(case_id="GATE", category="confidence", detail="ece_above_threshold"))
-    return EvaluationReport(package_code=package_code, case_count=evaluated, metrics=metrics, failures=failures, passed=not failures)
+    return EvaluationReport(package_code=package_code, profile=profile, case_count=evaluated, metrics=metrics, failures=failures, passed=not failures)

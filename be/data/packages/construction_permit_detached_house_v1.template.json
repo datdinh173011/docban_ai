@@ -1,0 +1,21 @@
+{
+  "package_code": "CONSTRUCTION_PERMIT_DETACHED_HOUSE",
+  "version_no": 1,
+  "procedure_code": "CONSTRUCTION_PERMIT_DETACHED_HOUSE",
+  "scenario_code": "STANDARD",
+  "expected_scenarios": ["STANDARD"],
+  "documents": [
+    {"document_code": "CONSTRUCTION_PERMIT_LAW_V1", "source_code": "LAW_CONSTRUCTION_2014"},
+    {"document_code": "CONSTRUCTION_PERMIT_AMENDMENT_2020_V1", "source_code": "LAW_AMENDING_CONSTRUCTION_2020"},
+    {"document_code": "CONSTRUCTION_PERMIT_DECREE_175_V1", "source_code": "DECREE_175_2024_ND_CP"}
+  ],
+  "procedure_facts": [
+    {
+      "claim_id": "construction_permit_legal_basis",
+      "fact_type": "legal_basis",
+      "value": {"text": "Luật Xây dựng và văn bản sửa đổi là căn cứ pháp lý quốc gia của gói giấy phép xây dựng nhà ở riêng lẻ V1."},
+      "source_code": "LAW_CONSTRUCTION_2014",
+      "section_reference": "Toàn văn Luật Xây dựng"
+    }
+  ]
+}

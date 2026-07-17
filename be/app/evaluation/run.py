@@ -29,7 +29,7 @@ def load_records(path: Path) -> tuple[list[EvaluationCase], list[EvaluationObser
 
 def render_markdown(report: dict) -> str:
     lines = [
-        f"# Evaluation Report - {report['package_code']}",
+        f"# Evaluation Report - {report['package_code']} ({report['profile']})",
         "",
         f"Status: {'PASS' if report['passed'] else 'FAIL'}",
         "",
@@ -50,12 +50,13 @@ def main() -> None:
     parser.add_argument("--package", required=True)
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--report-dir", type=Path, default=Path("evaluation/reports"))
+    parser.add_argument("--profile", choices=("demo", "standard"), default="standard")
     parser.add_argument("--strict", action="store_true")
     arguments = parser.parse_args()
 
     try:
         cases, observations = load_records(arguments.dataset)
-        report = evaluate(arguments.package, cases, observations, strict=arguments.strict)
+        report = evaluate(arguments.package, cases, observations, strict=arguments.strict, profile=arguments.profile)
     except ValueError as exc:
         console.print(f"[red]Evaluation dataset invalid:[/red] {exc}")
         raise SystemExit(2) from exc
