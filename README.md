@@ -5,6 +5,10 @@ administrative procedures using natural language. It is **not** a government
 service portal and does not submit applications on the user's behalf. It is a
 support layer that sits *before* submission, helping people get it right.
 
+## Production
+
+Use ICIVI at [https://icivi.online/](https://icivi.online/).
+
 ## Problem it solves
 
 When dealing with administrative procedures, citizens commonly struggle with:
