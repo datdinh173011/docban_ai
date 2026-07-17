@@ -8,12 +8,15 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
+from rich.console import Console
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.config import Settings
 from app.embeddings import EmbeddingClient
 from app.knowledge_ingestion import ALLOWED_FACT_TYPES, ChunkDraft, chunk_text, normalize_bytes, relative_storage_path
+
+console = Console()
 
 
 class PackageError(ValueError):
@@ -233,95 +236,136 @@ async def import_package(engine: AsyncEngine, settings: Settings, manifest: dict
     errors = validate_package_manifest(manifest)
     if errors:
         raise PackageError(";".join(errors))
+    package_code = manifest["package_code"]
+    version_no = manifest["version_no"]
+    documents = manifest["documents"]
+    console.print(
+        f"[cyan]Bắt đầu import package[/cyan] {package_code} v{version_no} "
+        f"({len(documents)} nguồn)."
+    )
     data_dir = settings.knowledge_data_dir.resolve()
     raw_dir = data_dir / "documents" / "legal" / "raw"
     normalized_dir = data_dir / "documents" / "legal" / "normalized"
     raw_dir.mkdir(parents=True, exist_ok=True)
     normalized_dir.mkdir(parents=True, exist_ok=True)
 
-    async with engine.begin() as connection:
-        existing = await connection.scalar(text("""
+    source_code: str | None = None
+    phase = "initializing"
+    chunk_position: int | None = None
+    try:
+        async with engine.begin() as connection:
+            existing = await connection.scalar(text("""
             SELECT 1 FROM knowledge_package WHERE package_code = :code AND version_no = :version
-        """), {"code": manifest["package_code"], "version": manifest["version_no"]})
-        if existing:
-            raise PackageError("package_version_already_exists")
-        source_codes = {document["source_code"] for document in manifest["documents"]}
-        registry_sources = await _approved_sources(connection, source_codes)
-        embedder = EmbeddingClient(settings)
-        if not embedder.configured:
-            raise PackageError("embedding_provider_not_configured")
-        package_id = await connection.scalar(text("""
+            """), {"code": package_code, "version": version_no})
+            if existing:
+                raise PackageError("package_version_already_exists")
+            source_codes = {document["source_code"] for document in documents}
+            registry_sources = await _approved_sources(connection, source_codes)
+            embedder = EmbeddingClient(settings)
+            if not embedder.configured:
+                raise PackageError("embedding_provider_not_configured")
+            package_id = await connection.scalar(text("""
             INSERT INTO knowledge_package (package_code, version_no, procedure_code, scenario_code, status, metadata)
             VALUES (:code, :version, :procedure_code, :scenario_code, 'in_review', CAST(:metadata AS jsonb))
             RETURNING id
-        """), {
-            "code": manifest["package_code"], "version": manifest["version_no"],
-            "procedure_code": manifest["procedure_code"], "scenario_code": manifest.get("scenario_code", "STANDARD"),
-            "metadata": json.dumps({"expected_scenarios": manifest.get("expected_scenarios", [])}),
-        })
-        procedure_id = await connection.scalar(text("""
+            """), {
+                "code": package_code, "version": version_no,
+                "procedure_code": manifest["procedure_code"], "scenario_code": manifest.get("scenario_code", "STANDARD"),
+                "metadata": json.dumps({"expected_scenarios": manifest.get("expected_scenarios", [])}),
+            })
+            procedure_id = await connection.scalar(text("""
             INSERT INTO administrative_procedure (procedure_code) VALUES (:code)
             ON CONFLICT (procedure_code) DO UPDATE SET updated_at = now() RETURNING id
-        """), {"code": manifest["procedure_code"]})
-        procedure_version_id = await connection.scalar(text("""
+            """), {"code": manifest["procedure_code"]})
+            procedure_version_id = await connection.scalar(text("""
             INSERT INTO procedure_version (procedure_id, version_no, title_vi, effective_from, status, metadata, knowledge_package_id)
             VALUES (:procedure_id, :version, :title, :effective_from, 'in_review', CAST(:metadata AS jsonb), :package_id)
             ON CONFLICT (procedure_id, version_no) DO UPDATE SET knowledge_package_id = EXCLUDED.knowledge_package_id
             RETURNING id
-        """), {
-            "procedure_id": procedure_id, "version": manifest["version_no"], "title": SUPPORTED_PROCEDURES[manifest["procedure_code"]],
-            "effective_from": min(source["effective_from"] for source in registry_sources.values()),
-            "metadata": json.dumps({"scenario_code": manifest.get("scenario_code", "STANDARD")}), "package_id": package_id,
-        })
-        source_versions: dict[str, str] = {}
-        document_count = 0
-        chunk_count = 0
-        for document in manifest["documents"]:
-            source = registry_sources[document["source_code"]]
-            contents, filename, content_type = await _fetch_approved_source(source)
-            digest = hashlib.sha256(contents).hexdigest()
-            raw_path = raw_dir / f"{digest[:16]}-{filename}"
-            normalized_path = normalized_dir / f"{digest}.txt"
-            raw_path.write_bytes(contents)
-            normalized = normalize_bytes(contents, filename, content_type)
-            verify_source_content(source, normalized)
-            normalized_path.write_text(normalized, encoding="utf-8")
-            chunks = chunk_text(normalized)
-            vectors = [await embedder.embed(chunk.content) for chunk in chunks]
-            source_file_id = await connection.scalar(text("""
-                INSERT INTO source_file (file_code, original_name, storage_path, mime_type, size_bytes, sha256, source_url, source_name, downloaded_at)
-                VALUES (:file_code, :original_name, :storage_path, :mime_type, :size_bytes, :sha256, :source_url, :source_name, :downloaded_at)
-                ON CONFLICT (file_code) DO UPDATE SET storage_path = EXCLUDED.storage_path, sha256 = EXCLUDED.sha256
-                RETURNING id
-            """), {"file_code": f"FILE_{digest[:16].upper()}", "original_name": filename, "storage_path": relative_storage_path(data_dir, raw_path), "mime_type": mimetypes.guess_type(filename)[0] or "application/octet-stream", "size_bytes": len(contents), "sha256": digest, "source_url": source["canonical_url"], "source_name": source["issuing_authority_vi"], "downloaded_at": datetime.now().astimezone()})
-            legal_source_id = await connection.scalar(text("""
-                INSERT INTO legal_source (source_code, source_type, issuing_authority_vi, document_number, title_vi)
-                VALUES (:source_code, :source_type, :authority, :document_number, :title)
-                ON CONFLICT (source_code) DO UPDATE SET title_vi = EXCLUDED.title_vi RETURNING id
-            """), {"source_code": source["source_code"], "source_type": source["source_type"], "authority": source["issuing_authority_vi"], "document_number": source["document_number"], "title": source["title_vi"]})
-            source_version_id = await connection.scalar(text("""
-                INSERT INTO legal_source_version (legal_source_id, version_no, source_file_id, effective_from, effective_to, source_url, extracted_text_path, status)
-                VALUES (:legal_source_id, :version, :source_file_id, :effective_from, :effective_to, :source_url, :extracted_text_path, 'in_review')
-                RETURNING id
-            """), {"legal_source_id": legal_source_id, "version": manifest["version_no"], "source_file_id": source_file_id, "effective_from": source["effective_from"], "effective_to": source["effective_to"], "source_url": source["canonical_url"], "extracted_text_path": relative_storage_path(data_dir, normalized_path)})
-            source_versions[source["source_code"]] = str(source_version_id)
-            document_id = await connection.scalar(text("""
-                INSERT INTO knowledge_document (document_code, legal_source_version_id, procedure_version_id, document_type, language_code, title, normalized_text_path, status)
-                VALUES (:code, :source_version_id, :procedure_version_id, 'legal', 'vi', :title, :path, 'in_review')
-                RETURNING id
-            """), {"code": document["document_code"], "source_version_id": source_version_id, "procedure_version_id": procedure_version_id, "title": source["title_vi"], "path": relative_storage_path(data_dir, normalized_path)})
-            for chunk, vector in zip(chunks, vectors, strict=True):
-                await connection.execute(text("""
+            """), {
+                "procedure_id": procedure_id, "version": version_no, "title": SUPPORTED_PROCEDURES[manifest["procedure_code"]],
+                "effective_from": min(source["effective_from"] for source in registry_sources.values()),
+                "metadata": json.dumps({"scenario_code": manifest.get("scenario_code", "STANDARD")}), "package_id": package_id,
+            })
+            source_versions: dict[str, str] = {}
+            document_count = 0
+            chunk_count = 0
+            for document in documents:
+                source_code = document["source_code"]
+                source = registry_sources[source_code]
+                phase = "downloading"
+                console.print(f"[cyan]Đang tải nguồn[/cyan] {source_code}.")
+                contents, filename, content_type = await _fetch_approved_source(source)
+                console.print(f"[cyan]Đã tải nguồn[/cyan] {source_code} ({len(contents):,} bytes).")
+                digest = hashlib.sha256(contents).hexdigest()
+                raw_path = raw_dir / f"{digest[:16]}-{filename}"
+                normalized_path = normalized_dir / f"{digest}.txt"
+                raw_path.write_bytes(contents)
+                phase = "normalizing"
+                normalized = normalize_bytes(contents, filename, content_type)
+                verify_source_content(source, normalized)
+                normalized_path.write_text(normalized, encoding="utf-8")
+                chunks = chunk_text(normalized)
+                total_chunks = len(chunks)
+                console.print(f"[cyan]Đã chuẩn hoá nguồn[/cyan] {source_code} ({total_chunks} chunks).")
+
+                phase = "embedding"
+                vectors: list[list[float]] = []
+                for chunk_position, chunk in enumerate(chunks, start=1):
+                    vectors.append(await embedder.embed(chunk.content))
+                    if chunk_position % 10 == 0 or chunk_position == total_chunks:
+                        console.print(
+                            f"[cyan]Đang tạo embeddings[/cyan] {source_code} "
+                            f"{chunk_position}/{total_chunks} chunks."
+                        )
+
+                phase = "saving_source"
+                console.print(f"[cyan]Đang lưu nguồn[/cyan] {source_code}.")
+                source_file_id = await connection.scalar(text("""
+            INSERT INTO source_file (file_code, original_name, storage_path, mime_type, size_bytes, sha256, source_url, source_name, downloaded_at)
+            VALUES (:file_code, :original_name, :storage_path, :mime_type, :size_bytes, :sha256, :source_url, :source_name, :downloaded_at)
+            ON CONFLICT (file_code) DO UPDATE SET storage_path = EXCLUDED.storage_path, sha256 = EXCLUDED.sha256
+            RETURNING id
+                """), {"file_code": f"FILE_{digest[:16].upper()}", "original_name": filename, "storage_path": relative_storage_path(data_dir, raw_path), "mime_type": mimetypes.guess_type(filename)[0] or "application/octet-stream", "size_bytes": len(contents), "sha256": digest, "source_url": source["canonical_url"], "source_name": source["issuing_authority_vi"], "downloaded_at": datetime.now().astimezone()})
+                legal_source_id = await connection.scalar(text("""
+            INSERT INTO legal_source (source_code, source_type, issuing_authority_vi, document_number, title_vi)
+            VALUES (:source_code, :source_type, :authority, :document_number, :title)
+            ON CONFLICT (source_code) DO UPDATE SET title_vi = EXCLUDED.title_vi RETURNING id
+                """), {"source_code": source["source_code"], "source_type": source["source_type"], "authority": source["issuing_authority_vi"], "document_number": source["document_number"], "title": source["title_vi"]})
+                source_version_id = await connection.scalar(text("""
+            INSERT INTO legal_source_version (legal_source_id, version_no, source_file_id, effective_from, effective_to, source_url, extracted_text_path, status)
+            VALUES (:legal_source_id, :version, :source_file_id, :effective_from, :effective_to, :source_url, :extracted_text_path, 'in_review')
+            RETURNING id
+                """), {"legal_source_id": legal_source_id, "version": version_no, "source_file_id": source_file_id, "effective_from": source["effective_from"], "effective_to": source["effective_to"], "source_url": source["canonical_url"], "extracted_text_path": relative_storage_path(data_dir, normalized_path)})
+                source_versions[source_code] = str(source_version_id)
+                document_id = await connection.scalar(text("""
+            INSERT INTO knowledge_document (document_code, legal_source_version_id, procedure_version_id, document_type, language_code, title, normalized_text_path, status)
+            VALUES (:code, :source_version_id, :procedure_version_id, 'legal', 'vi', :title, :path, 'in_review')
+            RETURNING id
+                """), {"code": document["document_code"], "source_version_id": source_version_id, "procedure_version_id": procedure_version_id, "title": source["title_vi"], "path": relative_storage_path(data_dir, normalized_path)})
+                for chunk_position, (chunk, vector) in enumerate(zip(chunks, vectors, strict=True), start=1):
+                    await connection.execute(text("""
                     INSERT INTO knowledge_chunk (knowledge_document_id, chunk_no, chunk_type, hierarchy_path, title, content, token_count, embedding)
                     VALUES (:document_id, :chunk_no, :chunk_type, CAST(:hierarchy_path AS jsonb), :title, :content, :token_count, CAST(:embedding AS vector))
-                """), {"document_id": document_id, "chunk_no": chunk.chunk_no, "chunk_type": chunk.chunk_type, "hierarchy_path": json.dumps(chunk.hierarchy_path), "title": chunk.title, "content": chunk.content, "token_count": chunk.token_count, "embedding": "[" + ",".join(str(value) for value in vector) + "]"})
-            document_count += 1
-            chunk_count += len(chunks)
-        for fact in manifest["procedure_facts"]:
-            await connection.execute(text("""
-                INSERT INTO procedure_fact (procedure_version_id, fact_type, value, effective_from, legal_source_version_id, status, metadata)
-                VALUES (:procedure_version_id, :fact_type, CAST(:value AS jsonb), :effective_from, :source_version_id, 'in_review', CAST(:metadata AS jsonb))
-            """), {"procedure_version_id": procedure_version_id, "fact_type": fact["fact_type"], "value": json.dumps(fact["value"]), "effective_from": min(source["effective_from"] for source in registry_sources.values()), "source_version_id": source_versions[fact["source_code"]], "metadata": json.dumps({"section_reference": fact["section_reference"], "claim_id": fact.get("claim_id", fact["fact_type"])})})
+                    """), {"document_id": document_id, "chunk_no": chunk.chunk_no, "chunk_type": chunk.chunk_type, "hierarchy_path": json.dumps(chunk.hierarchy_path), "title": chunk.title, "content": chunk.content, "token_count": chunk.token_count, "embedding": "[" + ",".join(str(value) for value in vector) + "]"})
+                document_count += 1
+                chunk_count += total_chunks
+                console.print(f"[green]Đã lưu nguồn[/green] {source_code} ({total_chunks} chunks).")
+            phase = "saving_facts"
+            for fact in manifest["procedure_facts"]:
+                await connection.execute(text("""
+            INSERT INTO procedure_fact (procedure_version_id, fact_type, value, effective_from, legal_source_version_id, status, metadata)
+            VALUES (:procedure_version_id, :fact_type, CAST(:value AS jsonb), :effective_from, :source_version_id, 'in_review', CAST(:metadata AS jsonb))
+                """), {"procedure_version_id": procedure_version_id, "fact_type": fact["fact_type"], "value": json.dumps(fact["value"]), "effective_from": min(source["effective_from"] for source in registry_sources.values()), "source_version_id": source_versions[fact["source_code"]], "metadata": json.dumps({"section_reference": fact["section_reference"], "claim_id": fact.get("claim_id", fact["fact_type"])})})
+    except Exception as exc:
+        context = f"package={package_code} v{version_no} phase={phase}"
+        if source_code:
+            context += f" source={source_code}"
+        if chunk_position is not None:
+            context += f" chunk={chunk_position}"
+        console.print(f"[red]Import thất bại[/red] {context} error={type(exc).__name__}")
+        raise
+    console.print(f"[green]Đã hoàn tất import package[/green] {package_code} ({document_count} documents, {chunk_count} chunks).")
     return {"package_code": manifest["package_code"], "documents": document_count, "chunks": chunk_count}
 
 

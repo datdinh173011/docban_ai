@@ -1,8 +1,12 @@
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
 
+from app import legal_package
+from app.config import Settings
+from app.knowledge_ingestion import ChunkDraft
 from app.legal_package import PackageError, parse_review_timestamp, validate_package_manifest, validate_registry_document, verify_source_content
 
 
@@ -116,6 +120,98 @@ def test_package_accepts_supported_procedure() -> None:
     manifest["procedure_code"] = "PERMANENT_RESIDENCE"
 
     assert validate_package_manifest(manifest) == []
+
+
+class RecordingConsole:
+    def __init__(self) -> None:
+        self.messages: list[str] = []
+
+    def print(self, message: str) -> None:
+        self.messages.append(message)
+
+
+class FakeConnection:
+    async def scalar(self, statement, parameters):
+        if "SELECT 1 FROM knowledge_package" in str(statement):
+            return None
+        return "test-id"
+
+    async def execute(self, statement, parameters) -> None:
+        return None
+
+
+class FakeEngine:
+    @asynccontextmanager
+    async def begin(self):
+        yield FakeConnection()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("chunk_total", [1, 12])
+async def test_package_import_reports_source_and_embedding_progress(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, chunk_total: int) -> None:
+    source_code = "LAW_CIVIL_STATUS_2014"
+    source = {
+        "source_code": source_code,
+        "canonical_url": "https://vbpl.example.gov.vn/law.txt",
+        "issuing_authority_vi": "Cơ quan nhà nước",
+        "document_number": source_code,
+        "title_vi": source_code,
+        "source_type": "law",
+        "effective_from": "2016-01-01",
+        "effective_to": None,
+        "metadata": {},
+    }
+    manifest = {
+        "package_code": "BIRTH_REGISTRATION",
+        "version_no": 1,
+        "procedure_code": "BIRTH_REGISTRATION",
+        "documents": [{"document_code": "BIRTH_LAW_V1", "source_code": source_code}],
+        "procedure_facts": [{
+            "fact_type": "legal_basis",
+            "value": {"text": "Căn cứ pháp lý."},
+            "source_code": source_code,
+            "section_reference": "Điều 1",
+        }],
+    }
+    messages = RecordingConsole()
+
+    async def fetch_source(source: dict) -> tuple[bytes, str, str]:
+        return b"LAW_CIVIL_STATUS_2014", "law.txt", "text/plain"
+
+    async def embed(self, content: str) -> list[float]:
+        return [0.1]
+
+    chunks = [
+        ChunkDraft(chunk_no=index, chunk_type="article", hierarchy_path=[], title="Điều 1", content=f"Chunk {index}")
+        for index in range(1, chunk_total + 1)
+    ]
+    monkeypatch.setattr(legal_package, "console", messages)
+    monkeypatch.setattr(legal_package, "_approved_sources", lambda connection, codes: _async_result({source_code: source}))
+    monkeypatch.setattr(legal_package, "_fetch_approved_source", fetch_source)
+    monkeypatch.setattr(legal_package, "normalize_bytes", lambda contents, filename, content_type: contents.decode())
+    monkeypatch.setattr(legal_package, "chunk_text", lambda normalized: chunks)
+    monkeypatch.setattr(legal_package.EmbeddingClient, "embed", embed)
+
+    result = await legal_package.import_package(
+        FakeEngine(),
+        Settings(knowledge_data_dir=tmp_path, embedding_api_key="test-key", embedding_model="test-model"),
+        manifest,
+    )
+
+    output = "\n".join(messages.messages)
+    assert result == {"package_code": "BIRTH_REGISTRATION", "documents": 1, "chunks": chunk_total}
+    assert "Bắt đầu import package" in output
+    assert f"Đang tải nguồn[/cyan] {source_code}" in output
+    assert f"Đã chuẩn hoá nguồn[/cyan] {source_code} ({chunk_total} chunks)" in output
+    assert f"{chunk_total}/{chunk_total} chunks" in output
+    assert f"Đã lưu nguồn[/green] {source_code} ({chunk_total} chunks)" in output
+    assert "Đã hoàn tất import package" in output
+    if chunk_total >= 10:
+        assert "10/12 chunks" in output
+
+
+async def _async_result(value):
+    return value
 
 
 def test_package_rejects_unknown_procedure() -> None:
