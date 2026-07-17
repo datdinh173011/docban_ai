@@ -6,7 +6,7 @@ from app.config import Settings
 
 
 def create_database_engine(settings: Settings) -> AsyncEngine:
-    return create_async_engine(settings.database_url, pool_pre_ping=True)
+    return create_async_engine(settings.require_database_url(), pool_pre_ping=True)
 
 
 async def connection(engine: AsyncEngine) -> AsyncIterator:

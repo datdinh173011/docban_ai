@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     external_search_timeout_seconds: int = 10
     external_search_result_limit: int = 5
     external_search_allowed_domains: str = ""
-    database_url: str = "postgresql+asyncpg://icivi:icivi_dev_only@localhost:5432/icivi"
+    database_url: str = ""
     knowledge_data_dir: Path = Path("data")
     retrieval_limit: int = 6
     redis_url: str = "redis://localhost:6379/0"
@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     cors_origin: str = "http://localhost:5173"
     session_cookie_name: str = "icivi_session"
     session_cookie_secure: bool = False
+
+    def require_database_url(self) -> str:
+        if not self.database_url:
+            raise RuntimeError("DATABASE_URL must be configured in the runtime environment")
+        return self.database_url
 
 
 @lru_cache
