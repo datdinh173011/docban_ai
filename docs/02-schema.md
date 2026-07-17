@@ -122,6 +122,7 @@ Schema được chia thành sáu domain.
    - option
    - hướng dẫn điền
    - bản dịch
+   - template PDF export
 
 3. Validation Domain
    - field rule
@@ -225,6 +226,7 @@ erDiagram
 
     form_template ||--o{ form_version : versions
     procedure_version ||--o{ form_version : uses
+    form_version ||--o| form_export_template : exports_with
     form_version ||--o{ form_section : contains
     form_section ||--o{ form_field : contains
     form_field ||--o{ form_field_option : has
@@ -242,6 +244,7 @@ erDiagram
 
     source_file ||--o{ legal_source_version : supports
     source_file ||--o{ form_version : supports
+    source_file ||--o{ form_export_template : provides_pdf
 ```
 
 ---
@@ -621,7 +624,70 @@ CREATE TABLE form_version (
 
 ---
 
-## 7.3 `form_section`
+## 7.3 `form_export_template`
+
+Template export chỉ áp dụng cho form đã có PDF nền và mapping được review.
+V1 chỉ publish template cho `BIRTH_REGISTRATION_FORM` và
+`CONSTRUCTION_PERMIT_REQUEST_FORM`.
+
+```sql
+CREATE TABLE form_export_template (
+    id UUID PRIMARY KEY,
+    form_version_id UUID NOT NULL UNIQUE
+        REFERENCES form_version(id) ON DELETE CASCADE,
+    pdf_template_file_id UUID NOT NULL REFERENCES source_file(id),
+    mapping JSONB NOT NULL,
+    renderer_version TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    reviewed_by TEXT,
+    reviewed_at TIMESTAMPTZ,
+    published_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+`pdf_template_file_id` là PDF nền dẫn xuất từ `.doc` gốc bằng LibreOffice.
+File gốc, PDF nền và mapping phải có checksum, review trực quan và version rõ
+ràng trước khi template được publish.
+
+### Mapping field
+
+Mỗi entry mapping có tối thiểu `field_code`, `page`, `x`, `y`, `width`,
+`height`, `font_family`, `font_size`, `align`, `format` và `overflow_policy`.
+V1 dùng font Noto Sans để render tiếng Việt.
+
+```json
+{
+  "field_code": "applicant_full_name",
+  "page": 1,
+  "x": 72,
+  "y": 654,
+  "width": 210,
+  "height": 16,
+  "font_family": "Noto Sans",
+  "font_size": 10,
+  "align": "left",
+  "format": "text",
+  "overflow_policy": "reject"
+}
+```
+
+`overflow_policy` chỉ cho phép `reject` trong V1. Render text vượt vùng hoặc
+không render được là lỗi export; backend không cắt ngầm hoặc tự giảm cỡ chữ.
+
+### Trạng thái
+
+```text
+draft
+in_review
+published
+archived
+```
+
+---
+
+## 7.4 `form_section`
 
 Nhóm các field theo bố cục biểu mẫu.
 
@@ -651,7 +717,7 @@ ATTACHED_DOCUMENTS
 
 ---
 
-## 7.4 `form_field`
+## 7.5 `form_field`
 
 Định nghĩa một trường trong biểu mẫu.
 
@@ -747,7 +813,7 @@ Ví dụ field địa chỉ:
 
 ---
 
-## 7.5 `form_field_option`
+## 7.6 `form_field_option`
 
 Lựa chọn cho field dạng enum.
 
@@ -777,7 +843,7 @@ Ví dụ:
 
 ---
 
-## 7.6 `form_field_translation`
+## 7.7 `form_field_translation`
 
 Bản dịch của field.
 
@@ -1201,6 +1267,7 @@ Ví dụ:
   "validation_id": "uuid",
   "form_code": "BIRTH_REGISTRATION_FORM",
   "form_version": 1,
+  "input_hash": "sha256:...",
   "status": "invalid",
   "summary": {
     "blocking_error": 2,
@@ -1227,6 +1294,10 @@ Ví dụ:
   "validated_at": "2026-07-17T21:00:00+07:00"
 }
 ```
+
+`input_hash` là SHA-256 của form input đã normalize. Khi export, backend hash
+lại input hiện tại trong session và từ chối nếu không khớp validation result.
+Điều này buộc người dùng chạy validation lại sau mỗi lần sửa form.
 
 ## 10.2 `status`
 
@@ -1264,6 +1335,7 @@ CREATE TABLE source_file (
     source_url TEXT,
     source_name TEXT,
     downloaded_at TIMESTAMPTZ,
+    derived_from_file_id UUID REFERENCES source_file(id),
     file_status TEXT NOT NULL DEFAULT 'active',
     metadata JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -1288,6 +1360,15 @@ Không lưu absolute path phụ thuộc máy:
 ```text
 /home/user/project/data/...
 ```
+
+PDF nền export được lưu cùng form version, ví dụ:
+
+```text
+documents/forms/birth_registration/v1/export_template.pdf
+```
+
+PDF người dùng đã điền không phải `source_file`: backend tạo trong memory và
+stream trực tiếp để tránh lưu PII.
 
 ---
 
@@ -1700,6 +1781,9 @@ icivi:v1:validation:{session_id}:{validation_id}
 
 Dùng để người dùng sửa và kiểm tra lại trong cùng phiên.
 
+Giá trị phải gồm `form_code`, `form_version`, `input_hash`, summary severity và
+issues. Export chỉ dùng validation result có `blocking_error = 0`.
+
 ---
 
 ## 14.5 Rate limit key
@@ -1904,6 +1988,17 @@ Một form version chỉ được publish khi:
 - Procedure version liên quan đã publish hoặc sẵn sàng publish cùng transaction.
 - Phạm vi địa bàn khớp với procedure version liên quan.
 
+Một `form_export_template` chỉ được publish khi:
+
+- Form version liên quan đã publish.
+- PDF nền có `source_file` hợp lệ, checksum và `derived_from_file_id` trỏ tới
+  file `.doc` gốc.
+- Mapping tham chiếu field code thuộc form version, có trang và vùng hiển thị
+  hợp lệ.
+- Render review pass cho mọi field mapping, bao gồm tiếng Việt có dấu, field
+  rỗng và giá trị dài.
+- Mapping dùng `overflow_policy = reject`.
+
 ---
 
 ## 17.3 Knowledge publish
@@ -1940,6 +2035,9 @@ ON form_field (form_version_id, display_order);
 
 CREATE INDEX idx_form_field_code
 ON form_field (form_version_id, field_code);
+
+CREATE INDEX idx_form_export_template_published
+ON form_export_template (form_version_id, status);
 ```
 
 ## 18.3 Validation rule
@@ -1999,6 +2097,7 @@ USING hnsw (embedding vector_cosine_ops);
 | Legal source | Văn bản | Có | Cache | Có |
 | Validation issue code | Mã lỗi | Có thể | Có TTL | Có |
 | Raw form input | Nội dung đơn | Không | Có TTL | Không |
+| Generated PDF | PDF đã điền | Không | Không | Không |
 
 ## 19.2 Session cleanup
 
@@ -2231,6 +2330,7 @@ Trước khi ứng dụng khởi động hoặc publish dữ liệu, cần kiể
 9. Không có hai procedure version active overlap ngoài chủ đích.
 10. Không có rule `custom_function` trỏ tới function ngoài allowlist.
 11. Mọi record có `jurisdiction_scope` ngoài `national` có `administrative_area_id` hợp lệ và cấp địa bàn phù hợp.
+12. Mọi template PDF đã publish có PDF nền, mapping hợp lệ và field code thuộc form version.
 
 ---
 
@@ -2266,6 +2366,8 @@ Các schema này sẽ được bổ sung khi mở rộng phiên bản sau.
 - [ ] Tạo bảng Procedure Domain.
 - [ ] Tạo bảng Administrative Area và nạp mã địa bàn.
 - [ ] Tạo bảng Form Domain.
+- [ ] Chuẩn hóa hai `.doc` gốc thành PDF nền có checksum.
+- [ ] Tạo, review và publish `form_export_template` cho hai form hỗ trợ.
 - [ ] Tạo bảng Validation Domain.
 - [ ] Tạo bảng Knowledge Domain.
 - [ ] Tạo bảng Language Domain.
@@ -2309,4 +2411,5 @@ Các schema này sẽ được bổ sung khi mở rộng phiên bản sau.
 - [ ] Verify source file.
 - [ ] Verify citation.
 - [ ] Verify jurisdiction scope và fallback nội dung toàn quốc.
+- [ ] Verify PDF mapping, input hash và PDF không bị lưu sau export.
 - [ ] Publish atomically.
