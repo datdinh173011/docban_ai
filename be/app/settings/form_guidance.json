@@ -83,7 +83,7 @@
             "regex": null,
             "enum_values": null,
             "max_length": null,
-            "not_future_date": false,
+            "not_future_date": true,
             "rule_code": "APPLICANT_BIRTH_DATE_INVALID",
             "severity": "warning",
             "message_vi": "Vui lòng kiểm tra lại ngày, tháng, năm sinh người yêu cầu.",
@@ -461,14 +461,15 @@
           "required": false,
           "do_not_infer": true,
           "validation": {
-            "regex": null,
+            "regex": "^(19|20)\\d{2}$",
             "enum_values": null,
             "max_length": null,
             "not_future_date": false,
             "rule_code": "MOTHER_BIRTH_YEAR_INVALID",
             "severity": "warning",
-            "message_vi": "Vui lòng kiểm tra lại năm sinh của mẹ.",
-            "suggestion_vi": null
+            "message_vi": "Vui lòng nhập năm sinh của mẹ là một năm hợp lệ (ví dụ: 1994), không phải ở tương lai.",
+            "suggestion_vi": null,
+            "not_future_year": true
           },
           "export": {
             "page": 1,
@@ -647,14 +648,15 @@
           "required": false,
           "do_not_infer": true,
           "validation": {
-            "regex": null,
+            "regex": "^(19|20)\\d{2}$",
             "enum_values": null,
             "max_length": null,
             "not_future_date": false,
             "rule_code": "FATHER_BIRTH_YEAR_INVALID",
             "severity": "warning",
-            "message_vi": "Vui lòng kiểm tra lại năm sinh của cha.",
-            "suggestion_vi": null
+            "message_vi": "Vui lòng nhập năm sinh của cha là một năm hợp lệ (ví dụ: 1994), không phải ở tương lai.",
+            "suggestion_vi": null,
+            "not_future_year": true
           },
           "export": {
             "page": 1,
@@ -863,7 +865,7 @@
             "regex": null,
             "enum_values": null,
             "max_length": null,
-            "not_future_date": false,
+            "not_future_date": true,
             "rule_code": "MARRIAGE_REGISTRATION_DATE_INVALID",
             "severity": "warning",
             "message_vi": "Vui lòng kiểm tra lại ngày đăng ký kết hôn.",
@@ -974,6 +976,48 @@
             "format": "text",
             "overflow_policy": "reject"
           }
+        }
+      ],
+      "cross_field_rules": [
+        {
+          "rule_code": "MOTHER_BIRTH_YEAR_BEFORE_CHILD",
+          "older_field_code": "mother_birth_year",
+          "younger_field_code": "child_birth_date",
+          "min_gap_years": 1,
+          "anchor_field_code": "mother_birth_year",
+          "severity": "blocking_error",
+          "message_vi": "Năm sinh của mẹ phải trước ngày sinh của trẻ; vui lòng kiểm tra lại.",
+          "suggestion_vi": null
+        },
+        {
+          "rule_code": "MOTHER_MINIMUM_AGE_GAP",
+          "older_field_code": "mother_birth_year",
+          "younger_field_code": "child_birth_date",
+          "min_gap_years": 13,
+          "anchor_field_code": "mother_birth_year",
+          "severity": "warning",
+          "message_vi": "Khoảng cách tuổi giữa mẹ và trẻ khá nhỏ; vui lòng kiểm tra lại năm sinh của mẹ.",
+          "suggestion_vi": null
+        },
+        {
+          "rule_code": "FATHER_BIRTH_YEAR_BEFORE_CHILD",
+          "older_field_code": "father_birth_year",
+          "younger_field_code": "child_birth_date",
+          "min_gap_years": 1,
+          "anchor_field_code": "father_birth_year",
+          "severity": "blocking_error",
+          "message_vi": "Năm sinh của cha phải trước ngày sinh của trẻ; vui lòng kiểm tra lại.",
+          "suggestion_vi": null
+        },
+        {
+          "rule_code": "FATHER_MINIMUM_AGE_GAP",
+          "older_field_code": "father_birth_year",
+          "younger_field_code": "child_birth_date",
+          "min_gap_years": 13,
+          "anchor_field_code": "father_birth_year",
+          "severity": "warning",
+          "message_vi": "Khoảng cách tuổi giữa cha và trẻ khá nhỏ; vui lòng kiểm tra lại năm sinh của cha.",
+          "suggestion_vi": null
         }
       ]
     },
@@ -1087,7 +1131,7 @@
             "regex": null,
             "enum_values": null,
             "max_length": null,
-            "not_future_date": false,
+            "not_future_date": true,
             "rule_code": "APPLICANT_BIRTH_DATE_INVALID",
             "severity": "warning",
             "message_vi": "Vui lòng kiểm tra lại ngày, tháng, năm sinh.",

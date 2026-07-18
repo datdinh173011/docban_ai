@@ -42,6 +42,7 @@ class FormFieldValidation:
     enum_values: tuple[str, ...] | None
     max_length: int | None
     not_future_date: bool
+    not_future_year: bool
     rule_code: str
     severity: str
     message_vi: str
@@ -85,6 +86,25 @@ class FormGroup:
 
 
 @dataclass(frozen=True)
+class CrossFieldRule:
+    """Compares the *year* of two fields (either may be a full date or a bare 4-digit year).
+
+    Fails when `older_field`'s year is not at least `min_gap_years` before `younger_field`'s
+    year. Silently skipped by the validator when either side is empty/unparseable — this rule
+    only fires when it has real data to compare; per-field checks already cover required/format.
+    """
+
+    rule_code: str
+    older_field_code: str
+    younger_field_code: str
+    anchor_field_code: str
+    min_gap_years: int
+    severity: str
+    message_vi: str
+    suggestion_vi: str | None
+
+
+@dataclass(frozen=True)
 class FormCandidate:
     form_code: str
     title_vi: str
@@ -92,6 +112,7 @@ class FormCandidate:
     scenario_excerpt: str
     groups: tuple[FormGroup, ...]
     fields: tuple[FormField, ...]
+    cross_field_rules: tuple[CrossFieldRule, ...] = ()
 
     def field_by_code(self, field_code: str) -> FormField | None:
         return next((field for field in self.fields if field.field_code == field_code), None)
@@ -188,6 +209,7 @@ def _form_field_validation(payload: dict[str, Any], field_code: str) -> FormFiel
         enum_values=tuple(enum_values) if enum_values else None,
         max_length=validation.get("max_length"),
         not_future_date=bool(validation.get("not_future_date", False)),
+        not_future_year=bool(validation.get("not_future_year", False)),
         rule_code=rule_code.strip(),
         severity=severity,
         message_vi=message_vi.strip(),
@@ -252,6 +274,35 @@ def _form_field(payload: dict[str, Any], group_codes: set[str]) -> FormField:
     )
 
 
+def _cross_field_rule(payload: dict[str, Any], field_codes: set[str], form_code: str) -> CrossFieldRule:
+    rule_code = payload.get("rule_code")
+    older_field_code, younger_field_code, anchor_field_code = (
+        payload.get("older_field_code"), payload.get("younger_field_code"), payload.get("anchor_field_code"),
+    )
+    min_gap_years, severity, message_vi = payload.get("min_gap_years"), payload.get("severity"), payload.get("message_vi")
+    if not isinstance(rule_code, str) or not rule_code.strip():
+        raise ValueError(f"cross_field_rule_code_invalid:{form_code}")
+    for field_code in (older_field_code, younger_field_code, anchor_field_code):
+        if field_code not in field_codes:
+            raise ValueError(f"cross_field_rule_unknown_field:{form_code}:{rule_code}")
+    if not isinstance(min_gap_years, int) or min_gap_years < 0:
+        raise ValueError(f"cross_field_rule_min_gap_years_invalid:{form_code}:{rule_code}")
+    if severity not in _SEVERITIES:
+        raise ValueError(f"cross_field_rule_severity_invalid:{form_code}:{rule_code}")
+    if not isinstance(message_vi, str) or not message_vi.strip():
+        raise ValueError(f"cross_field_rule_message_invalid:{form_code}:{rule_code}")
+    return CrossFieldRule(
+        rule_code=rule_code.strip(),
+        older_field_code=older_field_code,
+        younger_field_code=younger_field_code,
+        anchor_field_code=anchor_field_code,
+        min_gap_years=min_gap_years,
+        severity=severity,
+        message_vi=message_vi.strip(),
+        suggestion_vi=payload.get("suggestion_vi"),
+    )
+
+
 def _form_candidate(payload: dict[str, Any]) -> FormCandidate:
     form_code, title_vi, source_pdf, scenario_excerpt = (
         payload.get("form_code"), payload.get("title_vi"), payload.get("source_pdf"), payload.get("scenario_excerpt"),
@@ -284,6 +335,10 @@ def _form_candidate(payload: dict[str, Any]) -> FormCandidate:
             raise ValueError(f"form_candidate_field_duplicate:{form_code}:{field.field_code}")
         seen_fields.add(field.field_code)
         fields.append(field)
+    raw_cross_field_rules = payload.get("cross_field_rules", [])
+    if not isinstance(raw_cross_field_rules, list):
+        raise ValueError(f"cross_field_rules_invalid:{form_code}")
+    cross_field_rules = [_cross_field_rule(entry, seen_fields, form_code) for entry in raw_cross_field_rules]
     return FormCandidate(
         form_code=form_code,
         title_vi=title_vi.strip(),
@@ -291,6 +346,7 @@ def _form_candidate(payload: dict[str, Any]) -> FormCandidate:
         scenario_excerpt=scenario_excerpt.strip(),
         groups=tuple(groups),
         fields=tuple(fields),
+        cross_field_rules=tuple(cross_field_rules),
     )
 
 

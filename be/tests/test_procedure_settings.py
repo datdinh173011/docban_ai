@@ -55,3 +55,45 @@ def test_invalid_selection_attribute_rejects_startup_bundle(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="procedure_selection_filter_attribute_invalid"):
         load_procedure_settings(bundle)
+
+
+def test_birth_registration_form_has_the_expected_cross_field_rules() -> None:
+    settings = load_procedure_settings(SETTINGS_DIR)
+    birth = settings.form_candidates["BIRTH_REGISTRATION_FORM"]
+    rule_codes = {rule.rule_code for rule in birth.cross_field_rules}
+    assert rule_codes == {
+        "MOTHER_BIRTH_YEAR_BEFORE_CHILD",
+        "MOTHER_MINIMUM_AGE_GAP",
+        "FATHER_BIRTH_YEAR_BEFORE_CHILD",
+        "FATHER_MINIMUM_AGE_GAP",
+    }
+
+
+def _birth_form_guidance(bundle: Path) -> Path:
+    return bundle / "form_guidance.json"
+
+
+def test_cross_field_rule_with_unknown_field_code_rejects_startup_bundle(tmp_path: Path) -> None:
+    bundle = tmp_path / "settings"
+    copy_bundle(bundle)
+    path = _birth_form_guidance(bundle)
+    guidance = json.loads(path.read_text(encoding="utf-8"))
+    birth = next(c for c in guidance["candidates"] if c["form_code"] == "BIRTH_REGISTRATION_FORM")
+    birth["cross_field_rules"][0]["older_field_code"] = "not_a_real_field"
+    path.write_text(json.dumps(guidance, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="cross_field_rule_unknown_field"):
+        load_procedure_settings(bundle)
+
+
+def test_cross_field_rule_with_invalid_severity_rejects_startup_bundle(tmp_path: Path) -> None:
+    bundle = tmp_path / "settings"
+    copy_bundle(bundle)
+    path = _birth_form_guidance(bundle)
+    guidance = json.loads(path.read_text(encoding="utf-8"))
+    birth = next(c for c in guidance["candidates"] if c["form_code"] == "BIRTH_REGISTRATION_FORM")
+    birth["cross_field_rules"][0]["severity"] = "not_a_real_severity"
+    path.write_text(json.dumps(guidance, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="cross_field_rule_severity_invalid"):
+        load_procedure_settings(bundle)
