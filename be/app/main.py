@@ -15,7 +15,7 @@ from sqlalchemy import text
 from app.config import Settings, get_settings
 from app.db import create_database_engine
 from app.form_conversation import maybe_fill_form
-from app.form_export import ExportError, render_export
+from app.form_export import ExportError, ensure_vietnamese_font, render_export
 from app.form_validation import canonical_input_hash, validate_form
 from app.logging_config import configure_logging
 from app.procedure_catalog import load_catalog
@@ -44,6 +44,8 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         configure_logging()
+        if settings.environment == "PRODUCTION":
+            ensure_vietnamese_font()
         app.state.redis = redis_client or Redis.from_url(settings.redis_url, decode_responses=True)
         app.state.store = SessionStore(app.state.redis, settings.session_ttl_seconds)
         app.state.translation_service = TranslationService(settings)

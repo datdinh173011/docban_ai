@@ -26,7 +26,7 @@ TEST_DATABASE_URL = "postgresql+asyncpg://test:test@localhost:5432/test"
 @pytest.fixture
 def app():
     return create_app(
-        Settings(llm_api_key="", llm_model="", session_ttl_seconds=1800, database_url=TEST_DATABASE_URL),
+        Settings(llm_api_key="", llm_model="", environment="LOCAL", session_ttl_seconds=1800, database_url=TEST_DATABASE_URL),
         FakeRedis(decode_responses=True),
     )
 
@@ -44,7 +44,7 @@ async def test_session_cookie_is_http_only(app) -> None:
 @pytest.mark.asyncio
 async def test_session_cookie_is_secure_when_enabled() -> None:
     app = create_app(
-        Settings(llm_api_key="", llm_model="", session_cookie_secure=True, database_url=TEST_DATABASE_URL),
+        Settings(llm_api_key="", llm_model="", environment="LOCAL", session_cookie_secure=True, database_url=TEST_DATABASE_URL),
         FakeRedis(decode_responses=True),
     )
     async with app.router.lifespan_context(app):

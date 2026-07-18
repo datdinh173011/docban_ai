@@ -61,12 +61,15 @@
             "x": 255.2,
             "y": 692.3,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -80,7 +83,7 @@
             "regex": null,
             "enum_values": null,
             "max_length": null,
-            "not_future_date": false,
+            "not_future_date": true,
             "rule_code": "APPLICANT_BIRTH_DATE_INVALID",
             "severity": "warning",
             "message_vi": "Vui lòng kiểm tra lại ngày, tháng, năm sinh người yêu cầu.",
@@ -121,12 +124,15 @@
             "x": 132.2,
             "y": 654.4,
             "width": 220.0,
-            "height": 14,
+            "height": 24,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 3,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -181,12 +187,15 @@
             "x": 256.2,
             "y": 579.7,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -211,12 +220,15 @@
             "x": 174.1,
             "y": 541.8,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -364,12 +376,15 @@
             "x": 123.3,
             "y": 466.0,
             "width": 220.0,
-            "height": 14,
+            "height": 24,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 3,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -394,12 +409,15 @@
             "x": 128.7,
             "y": 428.1,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -424,12 +442,15 @@
             "x": 229.5,
             "y": 409.2,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -440,14 +461,15 @@
           "required": false,
           "do_not_infer": true,
           "validation": {
-            "regex": null,
+            "regex": "^(19|20)\\d{2}$",
             "enum_values": null,
             "max_length": null,
             "not_future_date": false,
             "rule_code": "MOTHER_BIRTH_YEAR_INVALID",
             "severity": "warning",
-            "message_vi": "Vui lòng kiểm tra lại năm sinh của mẹ.",
-            "suggestion_vi": null
+            "message_vi": "Vui lòng nhập năm sinh của mẹ là một năm hợp lệ (ví dụ: 1994), không phải ở tương lai.",
+            "suggestion_vi": null,
+            "not_future_year": true
           },
           "export": {
             "page": 1,
@@ -544,12 +566,15 @@
             "x": 132.2,
             "y": 371.3,
             "width": 220.0,
-            "height": 14,
+            "height": 24,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 3,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -604,12 +629,15 @@
             "x": 232.4,
             "y": 314.4,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -620,14 +648,15 @@
           "required": false,
           "do_not_infer": true,
           "validation": {
-            "regex": null,
+            "regex": "^(19|20)\\d{2}$",
             "enum_values": null,
             "max_length": null,
             "not_future_date": false,
             "rule_code": "FATHER_BIRTH_YEAR_INVALID",
             "severity": "warning",
-            "message_vi": "Vui lòng kiểm tra lại năm sinh của cha.",
-            "suggestion_vi": null
+            "message_vi": "Vui lòng nhập năm sinh của cha là một năm hợp lệ (ví dụ: 1994), không phải ở tương lai.",
+            "suggestion_vi": null,
+            "not_future_year": true
           },
           "export": {
             "page": 1,
@@ -724,12 +753,15 @@
             "x": 132.2,
             "y": 276.5,
             "width": 220.0,
-            "height": 14,
+            "height": 24,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 3,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -833,7 +865,7 @@
             "regex": null,
             "enum_values": null,
             "max_length": null,
-            "not_future_date": false,
+            "not_future_date": true,
             "rule_code": "MARRIAGE_REGISTRATION_DATE_INVALID",
             "severity": "warning",
             "message_vi": "Vui lòng kiểm tra lại ngày đăng ký kết hôn.",
@@ -945,6 +977,48 @@
             "overflow_policy": "reject"
           }
         }
+      ],
+      "cross_field_rules": [
+        {
+          "rule_code": "MOTHER_BIRTH_YEAR_BEFORE_CHILD",
+          "older_field_code": "mother_birth_year",
+          "younger_field_code": "child_birth_date",
+          "min_gap_years": 1,
+          "anchor_field_code": "mother_birth_year",
+          "severity": "blocking_error",
+          "message_vi": "Năm sinh của mẹ phải trước ngày sinh của trẻ; vui lòng kiểm tra lại.",
+          "suggestion_vi": null
+        },
+        {
+          "rule_code": "MOTHER_MINIMUM_AGE_GAP",
+          "older_field_code": "mother_birth_year",
+          "younger_field_code": "child_birth_date",
+          "min_gap_years": 13,
+          "anchor_field_code": "mother_birth_year",
+          "severity": "warning",
+          "message_vi": "Khoảng cách tuổi giữa mẹ và trẻ khá nhỏ; vui lòng kiểm tra lại năm sinh của mẹ.",
+          "suggestion_vi": null
+        },
+        {
+          "rule_code": "FATHER_BIRTH_YEAR_BEFORE_CHILD",
+          "older_field_code": "father_birth_year",
+          "younger_field_code": "child_birth_date",
+          "min_gap_years": 1,
+          "anchor_field_code": "father_birth_year",
+          "severity": "blocking_error",
+          "message_vi": "Năm sinh của cha phải trước ngày sinh của trẻ; vui lòng kiểm tra lại.",
+          "suggestion_vi": null
+        },
+        {
+          "rule_code": "FATHER_MINIMUM_AGE_GAP",
+          "older_field_code": "father_birth_year",
+          "younger_field_code": "child_birth_date",
+          "min_gap_years": 13,
+          "anchor_field_code": "father_birth_year",
+          "severity": "warning",
+          "message_vi": "Khoảng cách tuổi giữa cha và trẻ khá nhỏ; vui lòng kiểm tra lại năm sinh của cha.",
+          "suggestion_vi": null
+        }
       ]
     },
     {
@@ -1002,12 +1076,15 @@
             "x": 83.4,
             "y": 657.7,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -1032,12 +1109,15 @@
             "x": 191.8,
             "y": 641.4,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -1051,7 +1131,7 @@
             "regex": null,
             "enum_values": null,
             "max_length": null,
-            "not_future_date": false,
+            "not_future_date": true,
             "rule_code": "APPLICANT_BIRTH_DATE_INVALID",
             "severity": "warning",
             "message_vi": "Vui lòng kiểm tra lại ngày, tháng, năm sinh.",
@@ -1215,12 +1295,15 @@
             "x": 177.8,
             "y": 582.4,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -1305,12 +1388,15 @@
             "x": 55.6,
             "y": 538.9,
             "width": 220.0,
-            "height": 14,
+            "height": 24,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 3,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -1340,7 +1426,10 @@
             "font_size": 8,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 6,
+            "line_height": 10,
+            "min_font_size": 7
           }
         }
       ]
@@ -1405,12 +1494,15 @@
             "x": 279.8,
             "y": 555.6,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -1435,12 +1527,15 @@
             "x": 167.2,
             "y": 534.7,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -1495,12 +1590,15 @@
             "x": 165.4,
             "y": 513.7,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -1525,12 +1623,15 @@
             "x": 262.3,
             "y": 513.7,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -1675,12 +1776,15 @@
             "x": 100.0,
             "y": 391.0,
             "width": 440.0,
-            "height": 14,
+            "height": 24,
             "font_size": 9,
             "font_family": "NotoSans",
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 3,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -1705,12 +1809,15 @@
             "x": 192.8,
             "y": 304.2,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -1765,12 +1872,15 @@
             "x": 192.8,
             "y": 241.4,
             "width": 220.0,
-            "height": 14,
+            "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 2,
+            "line_height": 8,
+            "min_font_size": 7
           }
         },
         {
@@ -2070,7 +2180,10 @@
             "font_size": 9,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "wrap",
+            "max_lines": 4,
+            "line_height": 10,
+            "min_font_size": 7
           }
         }
       ]

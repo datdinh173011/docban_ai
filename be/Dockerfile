@@ -3,7 +3,9 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 RUN apt-get update && apt-get install --no-install-recommends -y \
-    poppler-utils tesseract-ocr tesseract-ocr-vie fonts-noto-core \
+    fontconfig poppler-utils tesseract-ocr tesseract-ocr-vie fonts-noto-core \
+    && fc-cache -f \
+    && fc-match -f '%{file}' 'Noto Sans' | grep -q 'NotoSans-Regular.ttf' \
     && rm -rf /var/lib/apt/lists/*
 # fonts-noto-core provides /usr/share/fonts/truetype/noto/NotoSans-Regular.ttf, which
 # app/form_export.py registers for Vietnamese-diacritic PDF overlay rendering.

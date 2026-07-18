@@ -24,7 +24,7 @@ def _available_font() -> Path | None:
 @pytest.fixture
 def app():
     return create_app(
-        Settings(llm_api_key="", llm_model="", session_ttl_seconds=1800, database_url=TEST_DATABASE_URL),
+        Settings(llm_api_key="", llm_model="", environment="LOCAL", session_ttl_seconds=1800, database_url=TEST_DATABASE_URL),
         FakeRedis(decode_responses=True),
     )
 
@@ -62,6 +62,21 @@ async def test_cors_preflight_allows_put_for_draft_endpoint(app) -> None:
             )
     assert response.status_code == 200
     assert "PUT" in response.headers["access-control-allow-methods"]
+
+
+@pytest.mark.asyncio
+async def test_production_startup_requires_a_vietnamese_pdf_font(monkeypatch) -> None:
+    def missing_font() -> None:
+        raise form_export.ExportError(None, "vietnamese_font_missing")
+
+    monkeypatch.setattr("app.main.ensure_vietnamese_font", missing_font)
+    production_app = create_app(
+        Settings(llm_api_key="", llm_model="", environment="PRODUCTION", database_url=TEST_DATABASE_URL),
+        FakeRedis(decode_responses=True),
+    )
+    with pytest.raises(form_export.ExportError, match="vietnamese_font_missing"):
+        async with production_app.router.lifespan_context(production_app):
+            pass
 
 
 @pytest.mark.asyncio

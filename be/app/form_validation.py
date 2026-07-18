@@ -11,7 +11,7 @@ import re
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
-from app.procedure_settings import FormCandidate, FormField
+from app.procedure_settings import CrossFieldRule, FormCandidate, FormField
 from app.schemas import ValidationIssue, ValidationResult, ValidationSummary
 
 _EMPTY_VALUES = (None, "", [], {})
@@ -64,6 +64,39 @@ def _check_field(field: FormField, value: object) -> ValidationIssue | None:
             return _issue(field, "FIELD_DATE_UNPARSEABLE", severity="blocking_error", message_vi=f"Định dạng ngày của {field.label_vi.lower()} không hợp lệ, cần dạng YYYY-MM-DD.")
         if parsed > date.today():
             return _issue(field, "FIELD_DATE_IN_FUTURE", severity="blocking_error")
+    if field.validation.not_future_year and isinstance(value, str) and re.fullmatch(r"\d{4}", value.strip()):
+        if int(value.strip()) > date.today().year:
+            return _issue(field, "FIELD_YEAR_IN_FUTURE", severity="blocking_error")
+    return None
+
+
+def _extract_year(value: object) -> int | None:
+    """A cross-field rule's endpoints may each be a full ISO date or a bare 4-digit year."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    parsed = _parse_date(text)
+    if parsed is not None:
+        return parsed.year
+    if re.fullmatch(r"\d{4}", text):
+        return int(text)
+    return None
+
+
+def _check_cross_field_rule(rule: CrossFieldRule, values: dict) -> ValidationIssue | None:
+    older_year = _extract_year(values.get(rule.older_field_code))
+    younger_year = _extract_year(values.get(rule.younger_field_code))
+    if older_year is None or younger_year is None:
+        return None
+    if older_year > younger_year - rule.min_gap_years:
+        return ValidationIssue(
+            issue_code="CROSS_FIELD_MIN_AGE_GAP",
+            rule_code=rule.rule_code,
+            field_code=rule.anchor_field_code,
+            severity=rule.severity,
+            message_vi=rule.message_vi,
+            suggestion_vi=rule.suggestion_vi,
+        )
     return None
 
 
@@ -76,6 +109,7 @@ def _summarize(issues: list[ValidationIssue]) -> ValidationSummary:
 
 def validate_form(candidate: FormCandidate, values: dict) -> ValidationResult:
     issues = [issue for field in candidate.fields if (issue := _check_field(field, values.get(field.field_code))) is not None]
+    issues += [issue for rule in candidate.cross_field_rules if (issue := _check_cross_field_rule(rule, values)) is not None]
     summary = _summarize(issues)
     if summary.blocking_error:
         status = "invalid"

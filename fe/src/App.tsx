@@ -13,6 +13,7 @@ type Message = {
   answerStrategy?: string;
   externalSearchConsentRequired?: boolean;
 };
+type PendingMessage = { content: string; translationConsent: boolean | null };
 const id = () => crypto.randomUUID();
 
 export function App() {
@@ -24,6 +25,8 @@ export function App() {
   });
   const [menuOpen, setMenuOpen] = useState(false);
   const [streaming, setStreaming] = useState(false);
+  const [sessionReady, setSessionReady] = useState(true);
+  const [switchingLanguage, setSwitchingLanguage] = useState(false);
   const [reviewTab, setReviewTab] = useState(false);
   const [activeFormCode, setActiveFormCode] = useState<string | null>(null);
   const [formCodePending, setFormCodePending] = useState(false);
@@ -32,6 +35,7 @@ export function App() {
   const [pendingTranslation, setPendingTranslation] = useState<string | null>(null);
   const [translationProvider, setTranslationProvider] = useState("AI");
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(null);
   const [pendingExternalSearchMessage, setPendingExternalSearchMessage] = useState<string | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
@@ -86,6 +90,10 @@ export function App() {
   async function send(textToSend = input, confirmedTranslationConsent = translationConsent) {
     const message = textToSend.trim();
     if (!message || streaming) return;
+    if (!sessionReady) {
+      setPendingMessage({ content: message, translationConsent: confirmedTranslationConsent });
+      return;
+    }
     if (language.code !== "vi" && confirmedTranslationConsent !== true) {
       await requestTranslationConsent(message);
       return;
@@ -132,6 +140,12 @@ export function App() {
     }
   }
 
+  useEffect(() => {
+    if (!sessionReady || !pendingMessage) return;
+    setPendingMessage(null);
+    void send(pendingMessage.content, pendingMessage.translationConsent);
+  }, [sessionReady, pendingMessage]);
+
   function submit(event: FormEvent) {
     event.preventDefault();
     void send();
@@ -147,6 +161,42 @@ export function App() {
     setExternalSearchConsent(null);
     setTranslationConsent(null);
     setPendingExternalSearchMessage(null);
+  }
+
+  async function changeLanguage(nextLanguage: Locale) {
+    if (nextLanguage === language.code || streaming || switchingLanguage) {
+      setMenuOpen(false);
+      return;
+    }
+
+    const selectedLanguage = languages.find((item) => item.code === nextLanguage);
+    if (!selectedLanguage) return;
+
+    setMenuOpen(false);
+    setSwitchingLanguage(true);
+    setSessionReady(false);
+    setLanguage(selectedLanguage);
+    setMessages([]);
+    setInput("");
+    setReviewTab(false);
+    setActiveFormCode(null);
+    setFormCodePending(false);
+    setExternalSearchConsent(null);
+    setTranslationConsent(null);
+    setPendingTranslation(null);
+    setTranslationProvider("AI");
+    setPendingMessage(null);
+    setPendingExternalSearchMessage(null);
+    setNotice(null);
+    try {
+      await deleteSession();
+      await bootstrapSession();
+      setSessionReady(true);
+    } catch {
+      setNotice(copy[selectedLanguage.code].connectionError);
+    } finally {
+      setSwitchingLanguage(false);
+    }
   }
 
   function allowTranslation() {
@@ -181,6 +231,7 @@ export function App() {
                       aria-label={`${text.selectLanguage}, ${language.label}`}
                       className="language-button"
                       onClick={() => setMenuOpen((open) => !open)}
+                      disabled={streaming || switchingLanguage}
                       type="button"
                     >
                       <span className="language-current">{language.label}</span>
@@ -189,7 +240,7 @@ export function App() {
                       </svg>
                     </button>
                     {menuOpen && <div aria-label={text.languageList} className="language-menu" id="language-menu" role="listbox">
-                      {languages.map((item) => <button aria-selected={item.code === language.code} className={item.code === language.code ? "selected" : ""} key={item.code} onClick={() => { setLanguage(item); setMenuOpen(false); }} role="option" type="button"><span className="language-code">{item.code}</span>{item.label}</button>)}
+                      {languages.map((item) => <button aria-selected={item.code === language.code} className={item.code === language.code ? "selected" : ""} key={item.code} onClick={() => void changeLanguage(item.code)} role="option" type="button"><span className="language-code">{item.code}</span>{item.label}</button>)}
                     </div>}
                   </div>
                   <span className="status">{text.online}</span>

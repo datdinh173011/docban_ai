@@ -79,3 +79,66 @@ def test_input_hash_is_deterministic_regardless_of_key_order() -> None:
     result_a = validate_form(CT01_FORM, {"applicant_full_name": "A", "citizen_id": "123456789012"})
     result_b = validate_form(CT01_FORM, {"citizen_id": "123456789012", "applicant_full_name": "A"})
     assert result_a.input_hash == result_b.input_hash
+
+
+BASE_REQUIRED_FIELDS = {
+    "applicant_full_name": "Nguyễn Văn A",
+    "relationship_to_child": "Cha",
+    "child_full_name": "Nguyễn Văn B",
+    "child_birth_date": "2026-01-01",
+    "child_gender": "Nam",
+    "child_ethnicity": "Kinh",
+    "child_nationality": "Việt Nam",
+    "child_birth_place": "Bệnh viện Phụ sản Hà Nội",
+    "mother_full_name": "Trần Thị C",
+    "copy_request_needed": "Không",
+}
+
+
+def test_future_mother_birth_year_is_blocking_error() -> None:
+    result = validate_form(BIRTH_FORM, {**BASE_REQUIRED_FIELDS, "mother_birth_year": "2099"})
+    assert result.status == "invalid"
+    assert any(issue.issue_code == "FIELD_YEAR_IN_FUTURE" and issue.field_code == "mother_birth_year" for issue in result.issues)
+
+
+def test_mother_born_same_year_as_child_is_blocking_error() -> None:
+    result = validate_form(BIRTH_FORM, {**BASE_REQUIRED_FIELDS, "mother_birth_year": "2026"})
+    assert result.status == "invalid"
+    assert any(issue.rule_code == "MOTHER_BIRTH_YEAR_BEFORE_CHILD" for issue in result.issues)
+
+
+def test_mother_born_after_child_is_blocking_error() -> None:
+    result = validate_form(BIRTH_FORM, {**BASE_REQUIRED_FIELDS, "mother_birth_year": "2027"})
+    assert result.status == "invalid"
+    assert any(issue.rule_code == "MOTHER_BIRTH_YEAR_BEFORE_CHILD" for issue in result.issues)
+
+
+def test_small_but_valid_age_gap_is_warning_not_blocking() -> None:
+    result = validate_form(BIRTH_FORM, {**BASE_REQUIRED_FIELDS, "mother_birth_year": "2014"})
+    assert result.status == "valid_with_warnings"
+    assert result.summary.blocking_error == 0
+    assert any(issue.rule_code == "MOTHER_MINIMUM_AGE_GAP" and issue.severity == "warning" for issue in result.issues)
+
+
+def test_age_gap_at_the_minimum_boundary_is_clean() -> None:
+    result = validate_form(BIRTH_FORM, {**BASE_REQUIRED_FIELDS, "mother_birth_year": "2013"})
+    assert result.status == "valid"
+    assert not any("MOTHER" in issue.rule_code for issue in result.issues)
+
+
+def test_plausible_age_gap_has_no_cross_field_issues() -> None:
+    result = validate_form(BIRTH_FORM, {**BASE_REQUIRED_FIELDS, "mother_birth_year": "1994"})
+    assert result.status == "valid"
+    assert result.issues == []
+
+
+def test_missing_mother_birth_year_skips_cross_field_rule_silently() -> None:
+    result = validate_form(BIRTH_FORM, BASE_REQUIRED_FIELDS)
+    assert result.status == "valid"
+    assert not any("MOTHER_BIRTH_YEAR_BEFORE_CHILD" == issue.rule_code or "MOTHER_MINIMUM_AGE_GAP" == issue.rule_code for issue in result.issues)
+
+
+def test_father_cross_field_rules_mirror_mother() -> None:
+    result = validate_form(BIRTH_FORM, {**BASE_REQUIRED_FIELDS, "father_birth_year": "2026"})
+    assert result.status == "invalid"
+    assert any(issue.rule_code == "FATHER_BIRTH_YEAR_BEFORE_CHILD" for issue in result.issues)

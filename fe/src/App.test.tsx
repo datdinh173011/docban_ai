@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+import { bootstrapSession, deleteSession, streamChat } from "./api";
 
 vi.mock("./api", () => ({
   bootstrapSession: vi.fn().mockResolvedValue(undefined),
@@ -58,25 +59,67 @@ describe("App", () => {
     expect(await screen.findByText("Chọn mẫu đơn để rà soát")).toBeInTheDocument();
   });
 
-  it("updates the selected language and closes the menu", () => {
+  it("starts a clean English session when changing languages", async () => {
     render(<App />);
+    fireEvent.click(screen.getByText("Tôi muốn đăng ký khai sinh cho bé"));
+    expect(await screen.findByText("Phản hồi thử nghiệm")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /chọn ngôn ngữ/i }));
     fireEvent.click(screen.getByRole("option", { name: /english/i }));
 
+    await waitFor(() => expect(deleteSession).toHaveBeenCalledTimes(1));
+    expect(bootstrapSession).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("button", { name: /select language, english/i })).toBeInTheDocument();
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tôi muốn đăng ký khai sinh cho bé")).not.toBeInTheDocument();
+    expect(screen.getByText("I want to register my child's birth")).toBeInTheDocument();
   });
 
   it("requests translation consent before sending a non-Vietnamese chat", async () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: /chọn ngôn ngữ/i }));
     fireEvent.click(screen.getByRole("option", { name: /english/i }));
+    await waitFor(() => expect(bootstrapSession).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByText("I want to register my child's birth"));
 
     expect(await screen.findByRole("dialog")).toHaveTextContent("OpenRouter");
     fireEvent.click(screen.getByRole("button", { name: /allow and continue/i }));
     expect(await screen.findByText("Phản hồi thử nghiệm")).toBeInTheDocument();
+  });
+
+  it("sends an English question selected while its new session is still starting", async () => {
+    let finishSessionBootstrap: () => void = () => undefined;
+    render(<App />);
+    await waitFor(() => expect(bootstrapSession).toHaveBeenCalledTimes(1));
+    vi.mocked(bootstrapSession).mockImplementationOnce(() => new Promise<void>((resolve) => {
+        finishSessionBootstrap = resolve;
+      }));
+
+    fireEvent.click(screen.getByRole("button", { name: /chọn ngôn ngữ/i }));
+    fireEvent.click(screen.getByRole("option", { name: /english/i }));
+    fireEvent.click(screen.getByText("I want to register my child's birth"));
+
+    await waitFor(() => expect(bootstrapSession).toHaveBeenCalledTimes(2));
+    finishSessionBootstrap();
+    expect(await screen.findByRole("dialog")).toHaveTextContent("OpenRouter");
+  });
+
+  it("disables the language selector while a response is streaming", async () => {
+    let finishStreaming: () => void = () => undefined;
+    vi.mocked(streamChat).mockImplementationOnce(async (_message, _language, _translationConsent, _searchConsent, onEvent) => {
+      onEvent({ type: "message.delta", text: "Đang trả lời" });
+      await new Promise<void>((resolve) => {
+        finishStreaming = resolve;
+      });
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByText("Tôi muốn đăng ký khai sinh cho bé"));
+    const languageButton = screen.getByRole("button", { name: /chọn ngôn ngữ/i });
+    expect(languageButton).toBeDisabled();
+
+    finishStreaming();
+    await waitFor(() => expect(languageButton).not.toBeDisabled());
   });
 
   it("closes the language menu when clicking outside or pressing Escape", () => {

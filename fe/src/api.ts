@@ -58,6 +58,13 @@ export type ValidationResult = {
   validated_at: string;
 };
 
+export class ApiError extends Error {
+  constructor(public readonly status: number, public readonly detail: string) {
+    super(detail);
+    this.name = "ApiError";
+  }
+}
+
 export type Citation = {
   citation_id: string;
   source_code: string;
@@ -177,6 +184,9 @@ export async function exportFormPdf(formCode: string, validationId: string): Pro
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ validation_id: validationId }),
   });
-  if (!response.ok) throw new Error("Không thể xuất PDF. Vui lòng thẩm định lại hồ sơ.");
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { detail?: unknown };
+    throw new ApiError(response.status, typeof body.detail === "string" ? body.detail : "export_failed");
+  }
   return response.blob();
 }

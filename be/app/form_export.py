@@ -1,12 +1,7 @@
-"""Render a filled form draft as a PDF overlay on the original source template.
-
-No LLM, no database. Everything happens in memory (`io.BytesIO`) — nothing is
-written to disk. `overflow_policy` is always "reject" (see `docs/02-schema.md`
-§7.3): if a value does not fit its mapped box, this module raises `ExportError`
-rather than silently truncating or shrinking the font.
-"""
+"""Render a filled form draft as a PDF overlay on the original source template."""
 
 import io
+import subprocess
 from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
@@ -41,11 +36,32 @@ def _ensure_font_registered() -> None:
     global _registered
     if _registered:
         return
-    font_path = next((path for path in _FONT_CANDIDATES if path.is_file()), None)
+    font_path = next((path for path in (*_FONT_CANDIDATES, _fontconfig_match()) if path and path.is_file()), None)
     if font_path is None:
         raise ExportError(None, "vietnamese_font_missing")
     pdfmetrics.registerFont(TTFont(_FONT_NAME, str(font_path)))
     _registered = True
+
+
+def ensure_vietnamese_font() -> None:
+    """Fail deployment startup early when the PDF font is unavailable."""
+    _ensure_font_registered()
+
+
+def _fontconfig_match() -> Path | None:
+    """Ask Fontconfig for Noto Sans when distributions use a non-Debian path."""
+    try:
+        result = subprocess.run(
+            ["fc-match", "-f", "%{family}\n%{file}", "Noto Sans"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return None
+    family, _, value = result.stdout.strip().partition("\n")
+    return Path(value) if family.startswith("Noto Sans") and value else None
 
 
 def _format_value(value: object, field: FormField) -> str:
@@ -68,6 +84,56 @@ def _group_fields_by_page(candidate: FormCandidate, values: dict) -> dict[int, l
     return by_page
 
 
+def _wrap_text(text_value: str, width: float, font_size: float) -> list[str] | None:
+    words = text_value.split()
+    if not words:
+        return []
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if pdfmetrics.stringWidth(candidate, _FONT_NAME, font_size) <= width:
+            current = candidate
+            continue
+        if not current or pdfmetrics.stringWidth(word, _FONT_NAME, font_size) > width:
+            return None
+        lines.append(current)
+        current = word
+    lines.append(current)
+    return lines
+
+
+def _fit_lines(text_value: str, field: FormField) -> tuple[list[str], float]:
+    export = field.export
+    assert export is not None
+    if export.overflow_policy == "reject":
+        if pdfmetrics.stringWidth(text_value, _FONT_NAME, export.font_size) > export.width:
+            raise ExportError(field.field_code, "text_exceeds_field_width")
+        return [text_value], export.font_size
+
+    font_size = export.font_size
+    while font_size >= export.min_font_size:
+        lines = _wrap_text(text_value, export.width, font_size)
+        if lines is not None and len(lines) <= export.max_lines:
+            return lines, font_size
+        font_size -= 0.5
+    raise ExportError(field.field_code, "text_exceeds_field_width")
+
+
+def _draw_lines(canvas_obj: canvas.Canvas, field: FormField, lines: list[str], font_size: float) -> None:
+    export = field.export
+    assert export is not None
+    canvas_obj.setFont(_FONT_NAME, font_size)
+    for index, line in enumerate(lines):
+        y = export.y - (index * export.line_height)
+        if export.align == "right":
+            canvas_obj.drawRightString(export.x + export.width, y, line)
+        elif export.align == "center":
+            canvas_obj.drawCentredString(export.x + export.width / 2, y, line)
+        else:
+            canvas_obj.drawString(export.x, y, line)
+
+
 def render_export(candidate: FormCandidate, values: dict) -> bytes:
     _ensure_font_registered()
     base_path = TEMPLATES_DIR / candidate.source_pdf
@@ -84,15 +150,8 @@ def render_export(candidate: FormCandidate, values: dict) -> bytes:
             for field in overlay_fields:
                 export = field.export
                 text_value = _format_value(values.get(field.field_code), field)
-                canvas_obj.setFont(_FONT_NAME, export.font_size)
-                if pdfmetrics.stringWidth(text_value, _FONT_NAME, export.font_size) > export.width:
-                    raise ExportError(field.field_code, "text_exceeds_field_width")
-                if export.align == "right":
-                    canvas_obj.drawRightString(export.x + export.width, export.y, text_value)
-                elif export.align == "center":
-                    canvas_obj.drawCentredString(export.x + export.width / 2, export.y, text_value)
-                else:
-                    canvas_obj.drawString(export.x, export.y, text_value)
+                lines, font_size = _fit_lines(text_value, field)
+                _draw_lines(canvas_obj, field, lines, font_size)
             canvas_obj.save()
             buffer.seek(0)
             page.merge_page(PdfReader(buffer).pages[0])
