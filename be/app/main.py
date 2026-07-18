@@ -156,7 +156,10 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                 yield sse("message.complete", {
                     "intent": reply.intent,
                     "quick_replies": reply.quick_replies,
-                    "citations": result.get("citations", []),
+                    # Citations belong to the deterministic pipeline's own reply; when
+                    # maybe_fill_form overrides `reply` (form_guidance), those citations
+                    # are stale/unrelated and must not be shown alongside a different answer.
+                    "citations": result.get("citations", []) if reply.intent == "procedure_guidance" else [],
                     "answer_strategy": reply.answer_strategy,
                     "confidence_score": reply.confidence_score,
                     "confidence_band": reply.confidence_band,

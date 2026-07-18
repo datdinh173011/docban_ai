@@ -41,3 +41,52 @@ async def test_maybe_fill_form_uses_mock_reply_without_llm_key() -> None:
     assert reply.intent == "form_guidance"
     assert patch is not None
     assert patch["form_code"] == "BIRTH_REGISTRATION_FORM"
+
+
+@pytest.mark.asyncio
+async def test_maybe_fill_form_switches_away_from_a_stuck_sticky_form() -> None:
+    """Regression test for a real stuck session: once active_scenario_code was set to the
+    construction form on an earlier turn, a later message explicitly naming a different
+    procedure ("đăng ký khai sinh") must switch forms, not silently stay stuck."""
+    state = {
+        "active_scenario_code": "CONSTRUCTION_PERMIT_REQUEST_FORM",
+        "form_draft": {"CONSTRUCTION_PERMIT_REQUEST_FORM": {"owner_name": "Nguyễn Văn A"}},
+        "language_code": "vi",
+    }
+    result = {"reply": AssistantReply(intent="general", answer="ok", quick_replies=[]), "active_procedure_code": "1.007754"}
+    messages = [{"role": "user", "content": "Tôi muốn đăng ký khai sinh cho bé"}]
+    reply, patch = await maybe_fill_form(state, result, Settings(llm_api_key="", llm_model=""), SETTINGS, messages)
+    assert reply.intent == "form_guidance"
+    assert patch is not None
+    assert patch["form_code"] == "BIRTH_REGISTRATION_FORM"
+
+
+@pytest.mark.asyncio
+async def test_maybe_fill_form_keeps_active_form_for_plain_slot_answer() -> None:
+    """A bare slot-filling answer with no keyword overlap must not reset the active form."""
+    state = {
+        "active_scenario_code": "BIRTH_REGISTRATION_FORM",
+        "form_draft": {"BIRTH_REGISTRATION_FORM": {}},
+        "language_code": "vi",
+    }
+    result = {"reply": AssistantReply(intent="general", answer="ok", quick_replies=[]), "active_procedure_code": None}
+    messages = [{"role": "user", "content": "Nguyễn Văn An"}]
+    _reply, patch = await maybe_fill_form(state, result, Settings(llm_api_key="", llm_model=""), SETTINGS, messages)
+    assert patch is not None
+    assert patch["form_code"] == "BIRTH_REGISTRATION_FORM"
+
+
+@pytest.mark.asyncio
+async def test_maybe_fill_form_does_not_false_switch_on_generic_residence_answer() -> None:
+    """Answering the birth form's own "residence" field ("cư trú tại Hà Nội") must not
+    falsely trigger a switch to the CT01 residence form after tightening its keywords."""
+    state = {
+        "active_scenario_code": "BIRTH_REGISTRATION_FORM",
+        "form_draft": {"BIRTH_REGISTRATION_FORM": {}},
+        "language_code": "vi",
+    }
+    result = {"reply": AssistantReply(intent="general", answer="ok", quick_replies=[]), "active_procedure_code": None}
+    messages = [{"role": "user", "content": "cư trú tại Hà Nội"}]
+    _reply, patch = await maybe_fill_form(state, result, Settings(llm_api_key="", llm_model=""), SETTINGS, messages)
+    assert patch is not None
+    assert patch["form_code"] == "BIRTH_REGISTRATION_FORM"

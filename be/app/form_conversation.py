@@ -36,10 +36,19 @@ async def maybe_fill_form(
     messages: list[dict[str, str]],
 ) -> tuple[AssistantReply, dict[str, Any] | None]:
     """Returns (reply_to_use, form_patch_or_None). form_patch is {"form_code", "fields"}."""
+    message = messages[-1]["content"]
     active_form_code = state.get("active_scenario_code")
-    form_code = active_form_code if active_form_code in procedure_settings.form_candidates else None
-    if form_code is None:
-        form_code = resolve_form_code(result.get("active_procedure_code"), messages[-1]["content"], procedure_settings.form_mappings)
+    # An explicit keyword match against a *different* form in the new message always wins over
+    # a sticky active form — otherwise, once a form is active, later messages naming a different
+    # procedure (e.g. "đăng ký khai sinh" while active_scenario_code is still the construction
+    # form) get silently ignored and the session stays stuck on the old form forever.
+    keyword_match = resolve_form_code(None, message, procedure_settings.form_mappings)
+    if keyword_match and keyword_match != active_form_code:
+        form_code = keyword_match
+    elif active_form_code in procedure_settings.form_candidates:
+        form_code = active_form_code
+    else:
+        form_code = resolve_form_code(result.get("active_procedure_code"), message, procedure_settings.form_mappings)
     if form_code is None:
         return result["reply"], None
 
