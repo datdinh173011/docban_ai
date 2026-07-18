@@ -629,8 +629,17 @@ h1 span {
     max-width: 100%;
   }
 
-  .tabs button {
+.tabs button {
     padding: 8px 10px;
     font-size: 12px;
   }
 }
+
+.notice { max-width:580px; color:#9b341f; font-size:13px; line-height:1.5; }
+.consent-backdrop { position:fixed; inset:0; z-index:10; display:grid; place-items:center; padding:24px; background:rgba(30,33,64,.42); }
+.consent-dialog { width:min(480px,100%); padding:26px; border-radius:18px; background:var(--paper); box-shadow:0 22px 65px rgba(18,20,55,.3); }
+.consent-dialog h2 { font-size:20px; }
+.consent-dialog p { color:var(--muted); line-height:1.6; }
+.consent-dialog div { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+.consent-dialog button { border:1px solid var(--line); border-radius:9px; padding:10px 14px; color:var(--ink); background:var(--paper); font-weight:700; }
+.consent-dialog button.primary { border-color:var(--indigo); color:#fff; background:var(--indigo); }

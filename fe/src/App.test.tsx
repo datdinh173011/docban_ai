@@ -6,7 +6,11 @@ import { App } from "./App";
 vi.mock("./api", () => ({
   bootstrapSession: vi.fn().mockResolvedValue(undefined),
   deleteSession: vi.fn().mockResolvedValue(undefined),
-  streamChat: vi.fn().mockImplementation(async (_message, _language, _searchConsent, onEvent) => {
+  streamChat: vi.fn().mockImplementation(async (_message, language, translationConsent, _searchConsent, onEvent) => {
+    if (language !== "vi" && !translationConsent) {
+      onEvent({ type: "translation.consent_required", provider: "OpenRouter" });
+      return;
+    }
     onEvent({ type: "message.delta", text: "Phản hồi thử nghiệm" });
     onEvent({ type: "message.complete", intent: "general", quickReplies: ["Hỏi thêm"], citations: [{ citation_id: "CIT-1", source_code: "LAW", source_title: "Luật Hộ tịch", document_number: "60/2014/QH13", section_reference: "Điều 16", source_url: "https://example.test/source", effective_from: "2016-01-01", jurisdiction_scope: "national", administrative_area_code: null, quote_preview: "Trích dẫn", source_type: "government" }], answerStrategy: "high", confidenceBand: "high", confidenceReasons: [], externalSearchUsed: false, externalSearchConsentRequired: false, formCode: null });
   }),
@@ -22,6 +26,8 @@ describe("App", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
     vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
@@ -58,8 +64,19 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /chọn ngôn ngữ/i }));
     fireEvent.click(screen.getByRole("option", { name: /english/i }));
 
-    expect(screen.getByRole("button", { name: /hiện tại english/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /select language, english/i })).toBeInTheDocument();
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("requests translation consent before sending a non-Vietnamese chat", async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /chọn ngôn ngữ/i }));
+    fireEvent.click(screen.getByRole("option", { name: /english/i }));
+    fireEvent.click(screen.getByText("I want to register my child's birth"));
+
+    expect(await screen.findByRole("dialog")).toHaveTextContent("OpenRouter");
+    fireEvent.click(screen.getByRole("button", { name: /allow and continue/i }));
+    expect(await screen.findByText("Phản hồi thử nghiệm")).toBeInTheDocument();
   });
 
   it("closes the language menu when clicking outside or pressing Escape", () => {

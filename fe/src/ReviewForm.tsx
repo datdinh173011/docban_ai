@@ -8,15 +8,9 @@ import {
   updateFormDraft,
   validateForm,
 } from "./api";
+import { copy, Locale } from "./i18n";
 
 const KNOWN_FORM_CODES = ["BIRTH_REGISTRATION_FORM", "PERMANENT_RESIDENCE_CT01_FORM", "CONSTRUCTION_PERMIT_REQUEST_FORM"];
-
-const STATUS_LABEL: Record<ValidationResult["status"], string> = {
-  valid: "HỒ SƠ HỢP LỆ",
-  valid_with_warnings: "HỒ SƠ HỢP LỆ, CÓ CẢNH BÁO",
-  invalid: "HỒ SƠ CẦN SỬA",
-  unable_to_validate: "CHƯA THỂ THẨM ĐỊNH",
-};
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -27,8 +21,9 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function FormPicker({ onPick }: { onPick: (formCode: string) => void }) {
+function FormPicker({ locale, onPick }: { locale: Locale; onPick: (formCode: string) => void }) {
   const [titles, setTitles] = useState<Record<string, string>>({});
+  const text = copy[locale];
 
   useEffect(() => {
     void Promise.all(
@@ -39,8 +34,8 @@ function FormPicker({ onPick }: { onPick: (formCode: string) => void }) {
   return (
     <div className="review-empty">
       <span aria-hidden="true">📄</span>
-      <h2>Chọn mẫu đơn để rà soát</h2>
-      <p>Trò chuyện với ICIVI để được tự động điền, hoặc chọn thẳng một mẫu đơn dưới đây để tự điền.</p>
+      <h2>{text.pickerTitle}</h2>
+      <p>{text.pickerBody}</p>
       <div className="form-picker">
         {KNOWN_FORM_CODES.map((code) => (
           <button key={code} onClick={() => onPick(code)}>{titles[code] ?? code}</button>
@@ -50,23 +45,24 @@ function FormPicker({ onPick }: { onPick: (formCode: string) => void }) {
   );
 }
 
-function ResultPanel({ validation, dirty, onExport, exporting }: { validation: ValidationResult | null; dirty: boolean; onExport: () => void; exporting: boolean }) {
+function ResultPanel({ locale, validation, dirty, onExport, exporting }: { locale: Locale; validation: ValidationResult | null; dirty: boolean; onExport: () => void; exporting: boolean }) {
+  const text = copy[locale];
   if (!validation) {
     return (
       <aside className="review-result-panel">
-        <p className="result-placeholder">Nhấn <strong>Thẩm định &amp; Rà soát</strong> để hệ thống kiểm tra hồ sơ trước khi xuất PDF.</p>
+        <p className="result-placeholder">{text.reviewHint} <strong>{text.validate}</strong> {text.reviewHintEnd}</p>
       </aside>
     );
   }
   const canExport = validation.summary.blocking_error === 0 && !dirty;
   return (
     <aside className="review-result-panel">
-      <p className="result-title">KẾT QUẢ KIỂM DUYỆT HỆ THỐNG</p>
-      <div className={`result-stamp ${validation.status}`}>{STATUS_LABEL[validation.status]}</div>
+      <p className="result-title">{text.reviewResult}</p>
+      <div className={`result-stamp ${validation.status}`}>{text[validation.status]}</div>
       <ul className="result-summary">
-        <li className="blocking_error">Lỗi cần sửa: {validation.summary.blocking_error}</li>
-        <li className="warning">Cảnh báo: {validation.summary.warning}</li>
-        <li className="suggestion">Gợi ý: {validation.summary.suggestion}</li>
+        <li className="blocking_error">{text.blocking}: {validation.summary.blocking_error}</li>
+        <li className="warning">{text.warning}: {validation.summary.warning}</li>
+        <li className="suggestion">{text.suggestion}: {validation.summary.suggestion}</li>
       </ul>
       {validation.issues.length > 0 && (
         <ol className="result-issues">
@@ -75,15 +71,15 @@ function ResultPanel({ validation, dirty, onExport, exporting }: { validation: V
           ))}
         </ol>
       )}
-      {dirty && validation && <p className="result-stale">Hồ sơ đã thay đổi — hãy thẩm định lại trước khi xuất PDF.</p>}
+      {dirty && validation && <p className="result-stale">{text.stale}</p>}
       <button className="export-button" disabled={!canExport || exporting} onClick={onExport}>
-        {exporting ? "Đang tạo PDF..." : "⬇ Tải PDF đã điền"}
+        {exporting ? text.exporting : text.export}
       </button>
     </aside>
   );
 }
 
-export function ReviewForm({ activeFormCode, onFormCodeConsumed }: { activeFormCode: string | null; onFormCodeConsumed: () => void }) {
+export function ReviewForm({ activeFormCode, locale, onFormCodeConsumed }: { activeFormCode: string | null; locale: Locale; onFormCodeConsumed: () => void }) {
   const [formCode, setFormCode] = useState<string | null>(activeFormCode);
   const [schema, setSchema] = useState<FormSchemaResponse | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -93,6 +89,7 @@ export function ReviewForm({ activeFormCode, onFormCodeConsumed }: { activeFormC
   const [validating, setValidating] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const text = copy[locale];
 
   useEffect(() => {
     if (activeFormCode) {
@@ -112,7 +109,7 @@ export function ReviewForm({ activeFormCode, onFormCodeConsumed }: { activeFormC
         setValidation(null);
         setDirty(false);
       })
-      .catch(() => setError("Không thể tải biểu mẫu. Vui lòng thử lại."))
+      .catch(() => setError(text.formLoadError))
       .finally(() => setLoading(false));
   }, [formCode]);
 
@@ -127,14 +124,14 @@ export function ReviewForm({ activeFormCode, onFormCodeConsumed }: { activeFormC
   // A self-contained snapshot on every save makes each write independent of write order.
   async function persistDraft() {
     if (!formCode) return;
-    await updateFormDraft(formCode, values).catch(() => setError("Không thể lưu biểu mẫu vừa sửa."));
+    await updateFormDraft(formCode, values).catch(() => setError(text.formSaveError));
   }
 
   function handleSelectChange(fieldCode: string, value: string) {
     const next = { ...values, [fieldCode]: value };
     setValues(next);
     setDirty(true);
-    if (formCode) void updateFormDraft(formCode, next).catch(() => setError("Không thể lưu biểu mẫu vừa sửa."));
+    if (formCode) void updateFormDraft(formCode, next).catch(() => setError(text.formSaveError));
   }
 
   async function runValidation() {
@@ -145,7 +142,7 @@ export function ReviewForm({ activeFormCode, onFormCodeConsumed }: { activeFormC
       setValidation(await validateForm(formCode));
       setDirty(false);
     } catch {
-      setError("Không thể thẩm định hồ sơ lúc này.");
+      setError(text.formValidateError);
     } finally {
       setValidating(false);
     }
@@ -158,14 +155,14 @@ export function ReviewForm({ activeFormCode, onFormCodeConsumed }: { activeFormC
     try {
       downloadBlob(await exportFormPdf(formCode, validation.validation_id), `${formCode.toLowerCase()}.pdf`);
     } catch {
-      setError("Không thể xuất PDF. Vui lòng thẩm định lại hồ sơ.");
+      setError(text.formExportError);
     } finally {
       setExporting(false);
     }
   }
 
-  if (!formCode) return <FormPicker onPick={setFormCode} />;
-  if (loading || !schema) return <div className="review-empty"><span aria-hidden="true">📄</span><p>Đang tải biểu mẫu...</p></div>;
+  if (!formCode) return <FormPicker locale={locale} onPick={setFormCode} />;
+  if (loading || !schema) return <div className="review-empty"><span aria-hidden="true">📄</span><p>{text.loadingForm}</p></div>;
 
   const groups = [...schema.groups].sort((a, b) => a.display_order - b.display_order);
 
@@ -175,10 +172,10 @@ export function ReviewForm({ activeFormCode, onFormCodeConsumed }: { activeFormC
         <div className="review-form-header">
           <div>
             <h2>{schema.title_vi}</h2>
-            <button className="link-button" onClick={() => { setFormCode(null); setSchema(null); }}>Đổi mẫu đơn khác</button>
+            <button className="link-button" onClick={() => { setFormCode(null); setSchema(null); }}>{text.changeForm}</button>
           </div>
           <button className="primary-action" onClick={() => void runValidation()} disabled={validating}>
-            {validating ? "Đang thẩm định..." : "Thẩm định & Rà soát"}
+            {validating ? text.validating : text.validate}
           </button>
         </div>
         {error && <p className="form-error">{error}</p>}
@@ -197,7 +194,7 @@ export function ReviewForm({ activeFormCode, onFormCodeConsumed }: { activeFormC
                         onChange={(event) => handleSelectChange(field.field_code, event.target.value)}
                         className={issue ? issue.severity : ""}
                       >
-                        <option value="">-- Chọn --</option>
+                        <option value="">{text.choose}</option>
                         {field.enum_values?.map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
                     ) : field.data_type === "table" ? (
@@ -225,7 +222,7 @@ export function ReviewForm({ activeFormCode, onFormCodeConsumed }: { activeFormC
           </section>
         ))}
       </div>
-      <ResultPanel validation={validation} dirty={dirty} onExport={() => void runExport()} exporting={exporting} />
+      <ResultPanel locale={locale} validation={validation} dirty={dirty} onExport={() => void runExport()} exporting={exporting} />
     </div>
   );
 }

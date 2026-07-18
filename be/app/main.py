@@ -25,6 +25,7 @@ from app.procedure_rag import ProcedureRagService
 from app.procedure_settings import get_procedure_settings
 from app.schemas import ChatRequest, FormDraftResponse, FormDraftUpdateRequest, FormExportRequest, FormFieldSchema, FormGroupSchema, FormSchemaResponse, ValidationResult
 from app.session_store import SessionStore
+from app.translation import TranslationError, TranslationService, VIETNAMESE
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         configure_logging()
         app.state.redis = redis_client or Redis.from_url(settings.redis_url, decode_responses=True)
         app.state.store = SessionStore(app.state.redis, settings.session_ttl_seconds)
+        app.state.translation_service = TranslationService(settings)
         app.state.database = create_database_engine(settings)
         procedure_settings = get_procedure_settings()
         catalog = load_catalog(str(settings.procedure_snapshot_dir), str(settings.procedure_catalog_path) if settings.procedure_catalog_path else None)
@@ -119,7 +121,15 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         async def events() -> AsyncIterator[str]:
             started = time.perf_counter()
             try:
-                messages = [*state.get("messages", []), {"role": "user", "content": chat_request.message}]
+                needs_translation = chat_request.language_code != VIETNAMESE
+                translation_consent = chat_request.translation_consent or state.get("translation_consent", False)
+                if needs_translation and not translation_consent:
+                    yield sse("translation.consent_required", {"provider": settings.translation_provider_name})
+                    return
+                canonical_message = await app.state.translation_service.to_vietnamese(
+                    chat_request.message, chat_request.language_code,
+                )
+                messages = [*state.get("messages", []), {"role": "user", "content": canonical_message}]
                 result = await app.state.procedure_pipeline.ainvoke({
                     "messages": messages,
                     "request_id": request_id,
@@ -132,15 +142,23 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     "locality_required": state.get("locality_required", False),
                 })
                 reply, form_patch = await maybe_fill_form(
-                    state, result, settings, app.state.procedure_pipeline.procedure_settings, messages,
+                    {**state, "language_code": VIETNAMESE}, result, settings, app.state.procedure_pipeline.procedure_settings, messages,
                 )
+                canonical_answer = reply.answer
+                if needs_translation:
+                    reply.answer = await app.state.translation_service.from_vietnamese(reply.answer, chat_request.language_code)
+                    reply.quick_replies = [
+                        await app.state.translation_service.from_vietnamese(value, chat_request.language_code)
+                        for value in reply.quick_replies
+                    ]
                 for word in reply.answer.split(" "):
                     yield sse("message.delta", {"text": f"{word} "})
                     await asyncio.sleep(0)
                 form_code = form_patch["form_code"] if form_patch else None
                 new_state = {
-                    "messages": [*messages, {"role": "assistant", "content": reply.answer}][-12:],
+                    "messages": [*messages, {"role": "assistant", "content": canonical_answer}][-12:],
                     "language_code": chat_request.language_code,
+                    "translation_consent": bool(translation_consent),
                     "intent": reply.intent,
                     "active_procedure_code": result.get("active_procedure_code"),
                     "active_scenario_code": form_code if form_code else state.get("active_scenario_code"),
@@ -167,7 +185,11 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     "external_search_used": reply.external_search_used,
                     "external_search_consent_required": reply.external_search_consent_required,
                     "form_code": form_code,
+                    "translation_used": needs_translation,
                 })
+            except TranslationError as exc:
+                logger.warning("translation_unavailable request_id=%s session=%s reason=%s", request_id, session_hash(current_session_id), str(exc))
+                yield sse("error", {"code": "translation_unavailable", "message": "Không thể dịch yêu cầu lúc này."})
                 logger.info("chat_complete request_id=%s session=%s latency_ms=%d", request_id, session_hash(current_session_id), (time.perf_counter() - started) * 1000)
             except Exception as exc:  # Keep the SSE connection protocol stable for clients.
                 logger.exception("chat_error request_id=%s session=%s error=%s", request_id, session_hash(current_session_id), type(exc).__name__)

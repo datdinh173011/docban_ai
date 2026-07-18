@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str = ""
     llm_model: str = ""
+    translation_enabled: bool = True
+    translation_provider_name: str = "AI"
+    translation_base_url: str = ""
+    translation_api_key: str = ""
+    translation_model: str = ""
+    translation_timeout_seconds: int = 20
     environment: Literal["LOCAL", "PRODUCTION"] = "PRODUCTION"
     llm_debug_logging: bool = False
     embedding_base_url: str = "https://api.openai.com/v1"
@@ -46,6 +52,18 @@ class Settings(BaseSettings):
         if not self.database_url:
             raise RuntimeError("DATABASE_URL must be configured in the runtime environment")
         return self.database_url
+
+    @property
+    def effective_translation_base_url(self) -> str:
+        return self.translation_base_url or self.llm_base_url
+
+    @property
+    def effective_translation_api_key(self) -> str:
+        return self.translation_api_key or self.llm_api_key
+
+    @property
+    def effective_translation_model(self) -> str:
+        return self.translation_model or self.llm_model
 
 
 @lru_cache

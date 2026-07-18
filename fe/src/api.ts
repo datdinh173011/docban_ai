@@ -1,5 +1,6 @@
 export type StreamEvent =
   | { type: "message.delta"; text: string }
+  | { type: "translation.consent_required"; provider: string }
   | {
     type: "message.complete";
     intent: string;
@@ -89,6 +90,7 @@ export async function deleteSession(): Promise<void> {
 export async function streamChat(
   message: string,
   languageCode: string,
+  translationConsent: boolean | null,
   externalSearchConsent: boolean | null,
   onEvent: (event: StreamEvent) => void,
 ): Promise<void> {
@@ -99,6 +101,7 @@ export async function streamChat(
     body: JSON.stringify({
       message,
       language_code: languageCode,
+      translation_consent: translationConsent,
       external_search_consent: externalSearchConsent,
     }),
   });
@@ -119,6 +122,7 @@ export async function streamChat(
       if (!event || !data) return;
       const payload = JSON.parse(data) as Record<string, unknown>;
       if (event === "message.delta") onEvent({ type: event, text: String(payload.text ?? "") });
+      if (event === "translation.consent_required") onEvent({ type: event, provider: String(payload.provider ?? "AI") });
       if (event === "message.complete") onEvent({
         type: event,
         intent: String(payload.intent ?? "general"),

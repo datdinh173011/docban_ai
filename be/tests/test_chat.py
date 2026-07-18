@@ -6,6 +6,20 @@ from app.config import Settings
 from app.main import create_app
 from app.schemas import ChatRequest
 
+
+class FakeTranslationService:
+    def __init__(self) -> None:
+        self.to_vietnamese_calls: list[tuple[str, str]] = []
+        self.from_vietnamese_calls: list[tuple[str, str]] = []
+
+    async def to_vietnamese(self, text: str, locale: str) -> str:
+        self.to_vietnamese_calls.append((text, locale))
+        return "thủ tục 5.003859 cần hồ sơ gì"
+
+    async def from_vietnamese(self, text: str, locale: str) -> str:
+        self.from_vietnamese_calls.append((text, locale))
+        return f"[{locale}] {text}"
+
 TEST_DATABASE_URL = "postgresql+asyncpg://test:test@localhost:5432/test"
 
 
@@ -48,6 +62,32 @@ async def test_chat_streams_mock_response_and_keeps_session_server_side(app) -> 
     assert "event: message.delta" in response.text
     assert "event: message.complete" in response.text
     assert "httponly" in response.headers["set-cookie"].lower()
+
+
+@pytest.mark.asyncio
+async def test_non_vietnamese_chat_requires_translation_consent(app) -> None:
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/v1/chat/stream", json={"message": "Help me", "language_code": "en"})
+    assert response.status_code == 200
+    assert "event: translation.consent_required" in response.text
+
+
+@pytest.mark.asyncio
+async def test_non_vietnamese_chat_translates_before_rag_and_after_reply(app) -> None:
+    async with app.router.lifespan_context(app):
+        app.state.procedure_pipeline.rag_service = None
+        translator = FakeTranslationService()
+        app.state.translation_service = translator
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/v1/chat/stream", json={
+                "message": "What documents do I need?",
+                "language_code": "en",
+                "translation_consent": True,
+            })
+    assert translator.to_vietnamese_calls == [("What documents do I need?", "en")]
+    assert translator.from_vietnamese_calls
+    assert "[en]" in response.text
 
 
 @pytest.mark.asyncio

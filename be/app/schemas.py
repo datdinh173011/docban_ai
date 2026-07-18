@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
-    language_code: str = Field(default="vi", min_length=2, max_length=12)
+    language_code: Literal["vi", "en", "mww", "km"] = "vi"
+    translation_consent: bool | None = None
     external_search_consent: bool | None = None
 
 

@@ -19,6 +19,7 @@ class SessionStore:
         state = {
             "messages": [],
             "language_code": "vi",
+            "translation_consent": False,
             "intent": "general",
             "active_procedure_code": None,
             # Repurposed to hold the currently-active form_code once a chat turn
