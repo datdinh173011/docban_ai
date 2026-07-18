@@ -18,6 +18,7 @@ _REQUIRED_FILES = (
     "prompts/grounded_response.txt",
     "prompts/procedure_conversation.txt",
     "prompts/form_filling.txt",
+    "prompts/form_review.txt",
     "procedure_selection.json",
     "form_guidance.json",
 )
@@ -131,6 +132,7 @@ class ProcedureSettings:
     grounded_response_prompt: str
     procedure_conversation_prompt: str
     form_filling_prompt: str
+    form_review_prompt: str
     selection_filters: tuple[SelectionFilter, ...]
     locality_question: str
     max_quick_replies: int
@@ -402,6 +404,7 @@ def load_procedure_settings(directory: Path | None = None) -> ProcedureSettings:
         grounded_response_prompt=_read_text(directory, "prompts/grounded_response.txt"),
         procedure_conversation_prompt=_read_text(directory, "prompts/procedure_conversation.txt"),
         form_filling_prompt=_read_text(directory, "prompts/form_filling.txt"),
+        form_review_prompt=_read_text(directory, "prompts/form_review.txt"),
         selection_filters=filters,
         locality_question=locality["question"].strip(),
         max_quick_replies=selection["max_quick_replies"],

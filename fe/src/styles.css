@@ -474,6 +474,13 @@ h1 span {
   background: #fdf6e3;
 }
 
+.field input.unable_to_verify,
+.field select.unable_to_verify,
+.field textarea.unable_to_verify {
+  border-color: var(--muted);
+  background: #f1f3f8;
+}
+
 .field-issue {
   font-size: 11.5px;
 }
@@ -485,6 +492,10 @@ h1 span {
 .field-issue.warning,
 .field-issue.suggestion {
   color: #8a6d00;
+}
+
+.field-issue.unable_to_verify {
+  color: var(--muted);
 }
 
 .review-result-panel {
@@ -501,11 +512,6 @@ h1 span {
   text-align: center;
 }
 
-.result-placeholder {
-  color: var(--muted);
-  font-size: 13px;
-}
-
 .result-title {
   font-size: 11px;
   letter-spacing: .06em;
@@ -515,33 +521,133 @@ h1 span {
   margin: 0;
 }
 
-.result-stamp {
-  border: 3px solid currentColor;
-  border-radius: 14px;
-  padding: 14px 10px;
-  font-weight: 800;
-  font-size: 15px;
-  letter-spacing: .02em;
+.result-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 4px;
 }
 
-.result-stamp.valid {
+.result-icon {
+  font-size: 32px;
+  opacity: .55;
+}
+
+.result-placeholder {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.result-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 4px;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--indigo-soft);
+  border-top-color: var(--indigo);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+
+.result-loading-hint {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-style: italic;
+  margin: 0;
+}
+
+.result-verdict {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.verdict-stamp {
+  width: 96px;
+  height: 96px;
+  border: 3px solid currentColor;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  text-align: center;
+  transform: rotate(-8deg);
+  animation: stamp-in .45s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+
+.verdict-stamp-word {
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: .02em;
+  line-height: 1.2;
+}
+
+.verdict-stamp.valid {
   color: var(--leaf);
   background: var(--leaf-soft);
 }
 
-.result-stamp.valid_with_warnings {
+.verdict-stamp.valid_with_warnings {
   color: #8a6d00;
   background: #fdf6e3;
 }
 
-.result-stamp.invalid {
+.verdict-stamp.invalid {
   color: #b3261e;
   background: #fdecea;
 }
 
-.result-stamp.unable_to_validate {
+.verdict-stamp.unable_to_validate {
   color: var(--muted);
   background: #f1f3f8;
+}
+
+.result-heading {
+  font-size: 14px;
+  margin: 4px 0 0;
+}
+
+.result-heading.valid {
+  color: var(--leaf);
+}
+
+.result-heading.valid_with_warnings {
+  color: #8a6d00;
+}
+
+.result-heading.invalid {
+  color: #b3261e;
+}
+
+.result-heading.unable_to_validate {
+  color: var(--muted);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes stamp-in {
+  from {
+    transform: scale(1.6) rotate(15deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(-8deg);
+    opacity: 1;
+  }
 }
 
 .result-summary {
@@ -562,6 +668,10 @@ h1 span {
 
 .result-summary .warning {
   color: #8a6d00;
+}
+
+.result-summary .unable_to_verify {
+  color: var(--muted);
 }
 
 .result-issues {
@@ -599,19 +709,178 @@ h1 span {
   margin: 0;
 }
 
+.export-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  text-align: left;
+  background: var(--ivory);
+}
+
+.export-card-header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.export-card-icon {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 40px;
+  border: 1px solid var(--indigo);
+  border-radius: 4px;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  padding: 4px 3px;
+}
+
+.export-card-icon-line {
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.export-card-icon-line.short {
+  width: 65%;
+}
+
+.export-card-icon em {
+  font-style: normal;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .03em;
+  color: var(--indigo);
+}
+
+.export-card-copy h4 {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+
+.export-card-copy p {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.export-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.export-button,
+.preview-button {
+  width: 100%;
+  border-radius: 999px;
+  padding: 10px 12px;
+  font-weight: 700;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
 .export-button {
   border: 0;
-  border-radius: 999px;
-  padding: 11px 16px;
   background: var(--indigo);
   color: #fff;
-  font-weight: 700;
-  font-size: 13px;
 }
 
 .export-button:disabled {
   background: #cfd3e8;
   cursor: default;
+}
+
+.preview-button {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.preview-button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.pdf-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(30, 33, 64, .55);
+}
+
+.pdf-preview-dialog {
+  width: min(860px, 95vw);
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--paper);
+  box-shadow: 0 22px 65px rgba(18, 20, 55, .3);
+}
+
+.pdf-preview-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--ink);
+  color: #fff;
+}
+
+.pdf-preview-header h2 {
+  font-size: 13px;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.pdf-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pdf-preview-actions button {
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-weight: 700;
+  font-size: 12px;
+  background: var(--leaf);
+  color: #fff;
+}
+
+.pdf-preview-close {
+  background: transparent !important;
+  color: #cfd3e8 !important;
+  font-size: 16px;
+  padding: 2px 6px !important;
+}
+
+.pdf-preview-close:hover {
+  color: #fff !important;
+}
+
+.pdf-preview-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #525659;
 }
 
 @media (max-width: 900px) {

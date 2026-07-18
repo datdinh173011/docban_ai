@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -170,3 +171,59 @@ async def test_full_happy_path_produces_a_pdf(app, monkeypatch) -> None:
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
     assert response.content[:4] == b"%PDF"
+
+
+class _FakeAiReviewResponse:
+    status_code = 200
+    headers = {"content-type": "application/json"}
+
+    def __init__(self, content: str) -> None:
+        self._content = content
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return {"choices": [{"message": {"content": self._content}}]}
+
+
+class _FakeAiReviewAsyncClient:
+    reply_content: str = json.dumps({"issues": []})
+
+    def __init__(self, *args, **kwargs) -> None:
+        return None
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args) -> None:
+        return None
+
+    async def post(self, url: str, json: dict, headers: dict) -> _FakeAiReviewResponse:
+        return _FakeAiReviewResponse(_FakeAiReviewAsyncClient.reply_content)
+
+
+@pytest.mark.asyncio
+async def test_validate_endpoint_merges_ai_flagged_issue(monkeypatch) -> None:
+    _FakeAiReviewAsyncClient.reply_content = json.dumps({
+        "issues": [{
+            "field_code": "child_birth_place",
+            "issue_code": "IMPLAUSIBLE_BIRTH_PLACE",
+            "severity": "warning",
+            "message_vi": "Nơi sinh không giống một cơ sở y tế.",
+            "suggestion_vi": None,
+        }],
+    })
+    monkeypatch.setattr("app.form_ai_review.httpx.AsyncClient", _FakeAiReviewAsyncClient)
+    ai_app = create_app(
+        Settings(llm_api_key="test-key", llm_model="test-model", environment="LOCAL", session_ttl_seconds=1800, database_url=TEST_DATABASE_URL),
+        FakeRedis(decode_responses=True),
+    )
+    async with ai_app.router.lifespan_context(ai_app):
+        async with AsyncClient(transport=ASGITransport(app=ai_app), base_url="http://test") as client:
+            await client.put("/api/v1/forms/BIRTH_REGISTRATION_FORM/draft", json={"fields": VALID_BIRTH_VALUES})
+            response = await client.post("/api/v1/forms/BIRTH_REGISTRATION_FORM/validate")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "valid_with_warnings"
+    assert any(issue["rule_code"] == "AI_IMPLAUSIBLE_BIRTH_PLACE" for issue in body["issues"])

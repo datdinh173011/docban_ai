@@ -1600,7 +1600,7 @@ Ví dụ:
 vi
 ```
 
-Không mặc định dùng `th` cho tiếng Thái tại Việt Nam nếu chưa xác định đúng biến thể.
+Không dùng một mã ngôn ngữ chung chung cho một nhóm phương ngữ nếu chưa xác định đúng biến thể — ví dụ hệ thống dùng `mww` (Hmong Daw) chứ không phải mã Hmong chung chung, và `km` (Khmer) chứ không phải mã gộp Khmer/Môn-Khmer.
 
 ---
 

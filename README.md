@@ -37,13 +37,21 @@ office in person just to ask a question.
 - **Guided form filling** — field-by-field explanations include meaning, who
   fills the field, expected format, requirement status, and an example.
 - **Pre-submission validation** — reports use `blocking_error`, `warning`,
-  `suggestion`, or `unable_to_verify`. The LLM explains results; configured
-  schema and rules perform validation.
-- **PDF export** — V1 supports two standardized published forms. Users confirm
-  dynamic-form data before export; files stream for download and are never
-  persisted.
-- **Multilingual-ready architecture** — Vietnamese first, with a path to
-  ethnic minority languages such as a Tày or Thai pilot in Vietnam.
+  `suggestion`, or `unable_to_verify`. Configured schema and rules perform the
+  deterministic checks; an AI second pass adds further findings on top (never
+  dropping or overriding a rule result) to catch issues fixed rules can't
+  express, such as an implausible name or address.
+- **PDF export with preview** — V1 supports three standardized published
+  forms (birth registration, permanent residence, construction permit). Users
+  confirm dynamic-form data before export, can preview the exact generated
+  PDF in-browser before downloading it, and files stream for download and are
+  never persisted.
+- **Multilingual UI** — Vietnamese, English, Hmong Daw, and Khmer are live
+  today across the chat, form, and legal pages, with an architecture that
+  supports adding further languages.
+- **Terms & Privacy page** — a dedicated `/privacy` page with the platform's
+  terms of use and privacy policy, reachable from the header and translated
+  into all supported languages.
 
 ## Out of scope for Version 1
 
@@ -98,9 +106,12 @@ Response Generator
 
 ### Key architectural principles
 
-- **The LLM never makes administrative decisions.** It understands natural
-  language, classifies intent, extracts data, and explains results. Configured
-  data and the Validation Engine provide administrative facts.
+- **Deterministic rules are always authoritative and never overridden.** The
+  Validation Engine's schema-driven checks run first and are never dropped or
+  replaced. An AI pass adds further, equally-weighted findings on top —
+  including issues that can block PDF export — but every AI-origin issue is
+  tagged for traceability, and the AI pass degrades cleanly to rule-only
+  results if the LLM is unavailable.
 - **Schema-driven, not form-specific.** Each form is configuration with fields,
   requirements, instructions, examples, rules, and an effective version.
 - **Session-based, no accounts.** Sessions are anonymous, expire after 30
@@ -118,10 +129,15 @@ docs/     Design and architecture documentation
   00-overview.md      Product scope, user flows, data groups
   01-architecture.md  Technical architecture, stack, deployment, ADRs
   02-schema.md        Detailed data/schema and validation rule design
+  03-data-crawler.md  Source registry and data ingestion for the RAG base
+  04-rag-pipeline.md  Retrieval pipeline design and confidence scoring
+  05-scenario.md      Plain-language sample user flow walkthroughs
+  06-whats-new.md     Latest shipped features: business value and tech notes
 ```
 
-For full detail, read `docs/00-overview.md` for product scope and
-`docs/01-architecture.md` for architecture.
+For full detail, read `docs/00-overview.md` for product scope,
+`docs/01-architecture.md` for architecture, and `docs/06-whats-new.md` for
+the latest shipped features.
 
 ## Getting started
 

@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from app.config import Settings, get_settings
 from app.db import create_database_engine
+from app.form_ai_review import ai_review_form, merge_ai_issues
 from app.form_conversation import maybe_fill_form
 from app.form_export import ExportError, ensure_vietnamese_font, render_export
 from app.form_validation import canonical_input_hash, validate_form
@@ -286,7 +287,9 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         if is_new:
             set_session_cookie(http_response, current_session_id)
         draft = state.get("form_draft", {}).get(form_code, {})
-        result = validate_form(candidate, draft)
+        base_result = validate_form(candidate, draft)
+        ai_issues = await ai_review_form(settings, candidate, draft, base_result.issues)
+        result = merge_ai_issues(base_result, ai_issues)
         new_state = {**state, "last_validation": {**state.get("last_validation", {}), form_code: result.model_dump()}}
         await app.state.store.save(current_session_id, new_state)
         return result
