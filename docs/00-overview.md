@@ -107,16 +107,19 @@ LLM chỉ giải thích kết quả. Việc xác định lỗi phải dựa trê
 
 #### F. Tạo PDF từ biểu mẫu đã xác nhận
 
-Version 1 cho phép người dùng tạo PDF đã điền cho đúng hai mẫu đã được
-chuẩn hóa và publish:
+Version 1 cho phép người dùng tạo PDF đã điền cho ba mẫu đã được chuẩn hóa và
+publish:
 
 1. Đơn đề nghị cấp giấy phép xây dựng.
-2. Tờ khai đăng ký giấy khai sinh.
+2. Tờ khai đăng ký khai sinh.
+3. Tờ khai đăng ký thường trú (mẫu CT01).
 
 Thông tin chatbot trích xuất chỉ dùng để prefill. Người dùng phải xem, sửa nếu
 cần và xác nhận dữ liệu trong form động. Hệ thống chỉ cho tạo PDF khi kết quả
 validation không còn `blocking_error`; `warning` và `suggestion` vẫn được hiển
-thị nhưng không chặn export.
+thị nhưng không chặn export. Trước khi tải xuống, người dùng có thể xem trước
+đúng file PDF sẽ được tạo ngay trong trình duyệt (bản xem trước dùng chung một
+lần gọi export với bản tải xuống thật, không render lại ở client).
 
 PDF là bản hỗ trợ chuẩn bị hồ sơ, không có chữ ký số và không thay thế biểu mẫu
 hoặc căn cứ pháp lý chính thức. File được stream để tải xuống, không lưu trên
@@ -125,13 +128,14 @@ disk, database, backup hoặc application log.
 Biểu mẫu trích lục hộ tịch chưa hỗ trợ export cho đến khi có template PDF nền
 và field mapping được review, publish.
 
-#### G. Hỗ trợ đa ngôn ngữ có khả năng mở rộng
+#### G. Hỗ trợ đa ngôn ngữ
 
-Version 1 ưu tiên tiếng Việt.
+Version 1 đã triển khai bốn ngôn ngữ giao diện: tiếng Việt (ngôn ngữ gốc),
+tiếng Anh, tiếng Hmong (Hmong Daw) và tiếng Khmer — áp dụng xuyên suốt giao
+diện chat, hướng dẫn điền đơn và trang điều khoản/quyền riêng tư.
 
-Kiến trúc phải cho phép mở rộng sang các ngôn ngữ dân tộc thiểu số, trước mắt có thể thử nghiệm với tiếng Thái tại Việt Nam.
-
-Việc mở rộng ngôn ngữ gồm:
+Kiến trúc vẫn giữ nguyên các nguyên tắc mở rộng ngôn ngữ ban đầu, để có thể bổ
+sung thêm ngôn ngữ dân tộc thiểu số khác trong tương lai:
 
 - Nhận diện ngôn ngữ người dùng.
 - Dịch câu hỏi sang ngôn ngữ xử lý trung gian nếu cần.
@@ -139,6 +143,13 @@ Việc mở rộng ngôn ngữ gồm:
 - Trả lời bằng ngôn ngữ người dùng.
 - Có bảng thuật ngữ song ngữ cho tên thủ tục, giấy tờ và trường biểu mẫu.
 - Cho phép quản trị nội dung theo từng ngôn ngữ.
+
+#### H. Điều khoản sử dụng & Chính sách quyền riêng tư
+
+Trang `/privacy` trình bày điều khoản sử dụng và chính sách quyền riêng tư của
+hệ thống, truy cập được từ header của giao diện chat và có đường dẫn quay lại.
+Nội dung được dịch đầy đủ sang tất cả các ngôn ngữ hệ thống hỗ trợ (xem mục
+3.1.G ở trên).
 
 ---
 
@@ -336,7 +347,8 @@ Lưu và truy xuất:
 
 #### Application Validation Engine
 
-Chạy các kiểm tra deterministic:
+Chạy các kiểm tra deterministic, luôn thực thi trước và không bao giờ bị bỏ
+qua hay ghi đè:
 
 - Required field.
 - Kiểu dữ liệu.
@@ -345,6 +357,15 @@ Chạy các kiểm tra deterministic:
 - Quan hệ giữa các trường.
 - Điều kiện phát sinh giấy tờ.
 - Quy tắc riêng của từng biểu mẫu.
+
+Sau bước deterministic, một lượt AI thứ hai (dùng chung LLM provider với
+chatbot) rà soát thêm các vấn đề mà rule tĩnh không diễn đạt được (tên/địa chỉ
+có vẻ không hợp lý, mâu thuẫn logic giữa các trường). Kết quả AI được cộng
+thêm vào danh sách issue hiện có — không thay thế hay xóa issue do rule tạo ra
+— và có cùng trọng số mức độ nghiêm trọng (`blocking_error` từ AI vẫn chặn
+export PDF như từ rule), nhưng mỗi issue do AI tạo ra được gắn `rule_code` tiền
+tố `AI_` để phân biệt nguồn gốc. Nếu LLM không khả dụng, hệ thống tự động rơi
+về kết quả chỉ có rule, không lỗi, không chặn luồng thẩm định.
 
 #### Form PDF Export Service
 
@@ -363,15 +384,22 @@ LLM được sử dụng để:
 - Diễn giải hướng dẫn.
 - Giải thích lỗi bằng ngôn ngữ dễ hiểu.
 - Dịch và phản hồi đa ngôn ngữ.
+- Rà soát bổ sung dữ liệu biểu mẫu sau bước kiểm tra deterministic (xem mục
+  Application Validation Engine ở trên) — đây là lời gọi LLM duy nhất được
+  phép đóng góp trực tiếp vào kết quả `blocking_error`/`warning`/`suggestion`/
+  `unable_to_verify` của một biểu mẫu.
 
-LLM không được tự quyết định:
+Ngoài lượt rà soát bổ sung nói trên, LLM (ở vai trò hội thoại/giải thích)
+không được tự quyết định:
 
-- Hồ sơ hợp lệ hay không.
 - Điều kiện pháp lý.
 - Danh sách giấy tờ bắt buộc.
 - Thời hạn.
 - Cơ quan tiếp nhận.
 - Nội dung của quy định.
+
+Những nội dung này luôn lấy từ dữ liệu đã cấu hình hoặc RAG có trích dẫn, LLM
+chỉ diễn giải chứ không tự bịa ra.
 
 ---
 
@@ -454,23 +482,31 @@ Khi chưa có dữ liệu đã publish cho địa bàn người dùng chọn, ch
 
 ---
 
-## 10. Hỗ trợ tiếng Thái Việt Nam
+## 10. Hỗ trợ đa ngôn ngữ dân tộc thiểu số
 
-Version 1 chưa cần hoàn thiện toàn bộ tiếng Thái, nhưng kiến trúc phải sẵn sàng cho một pilot ngôn ngữ nhỏ.
+Version 1 đã triển khai đầy đủ bốn ngôn ngữ giao diện: tiếng Việt, tiếng Anh,
+tiếng Hmong (Hmong Daw) và tiếng Khmer — không còn ở giai đoạn pilot. Mục này
+mô tả phương án đã áp dụng cho Hmong/Khmer và sẽ tiếp tục áp dụng cho các
+ngôn ngữ dân tộc thiểu số khác được bổ sung sau này.
 
 ### Phương án triển khai
 
-1. Chọn một biến thể tiếng Thái cụ thể theo khu vực pilot.
-2. Xây dựng bộ thuật ngữ hành chính Việt – Thái.
-3. Dịch thủ công tên thủ tục, giấy tờ và trường biểu mẫu quan trọng.
-4. Sử dụng LLM để hỗ trợ dịch hội thoại.
-5. Kiểm duyệt câu trả lời mẫu bởi người sử dụng ngôn ngữ bản địa.
-6. Khi trích dẫn pháp lý, giữ nguyên tên và số hiệu văn bản tiếng Việt, kèm giải thích bằng tiếng Thái.
+1. Chọn một biến thể ngôn ngữ cụ thể theo cộng đồng mục tiêu (ví dụ: Hmong Daw
+   thay vì gộp chung các phương ngữ Hmong).
+2. Xây dựng bộ thuật ngữ hành chính song ngữ Việt – ngôn ngữ đích.
+3. Dịch thủ công tên thủ tục, giấy tờ, trường biểu mẫu và nội dung điều
+   khoản/quyền riêng tư.
+4. Sử dụng LLM để hỗ trợ dịch hội thoại thời gian thực trong phiên chat.
+5. Kiểm duyệt câu trả lời mẫu bởi người sử dụng ngôn ngữ bản địa trước khi
+   phát hành rộng.
+6. Khi trích dẫn pháp lý, giữ nguyên tên và số hiệu văn bản tiếng Việt, kèm
+   giải thích bằng ngôn ngữ đích.
 
 ### Nguyên tắc
 
-- Không coi “tiếng Thái” là một ngôn ngữ đồng nhất cho mọi cộng đồng.
-- Phải xác định rõ biến thể ngôn ngữ của khu vực triển khai.
+- Không coi một ngôn ngữ dân tộc thiểu số là đồng nhất cho mọi cộng đồng nói
+  ngôn ngữ đó.
+- Phải xác định rõ biến thể ngôn ngữ cụ thể được hỗ trợ.
 - Nội dung pháp lý gốc vẫn là tiếng Việt.
 - Bản dịch dùng để hỗ trợ hiểu, không thay thế văn bản pháp lý gốc.
 

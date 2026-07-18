@@ -13,7 +13,7 @@ Version 1 tập trung vào:
 - Tư vấn lựa chọn thủ tục và biểu mẫu.
 - Hướng dẫn điền từng trường trong đơn.
 - Kiểm tra sơ bộ nội dung đơn trước khi nộp.
-- Có khả năng mở rộng sang tiếng Thái tại Việt Nam.
+- Đa ngôn ngữ: tiếng Việt, tiếng Anh, tiếng Hmong (Hmong Daw) và tiếng Khmer.
 - Toàn bộ thành phần lưu trữ và xử lý chạy trên máy chủ LAN/internal trong Version 1.
 
 Tài liệu này chỉ mô tả kiến trúc và trách nhiệm của các thành phần. Thiết kế bảng dữ liệu, JSON Schema, validation rule schema và cấu trúc lưu trữ chi tiết được mô tả trong `02-schema.md`.
@@ -89,8 +89,13 @@ LLM được dùng để:
 - Diễn giải hướng dẫn.
 - Giải thích kết quả kiểm tra.
 - Hỗ trợ đa ngôn ngữ.
+- Rà soát bổ sung dữ liệu biểu mẫu sau bước kiểm tra deterministic của
+  Validation Engine (xem `00-overview.md` mục "Application Validation
+  Engine") — lời gọi LLM duy nhất được phép đóng góp trực tiếp vào kết quả
+  hợp lệ/không hợp lệ của một biểu mẫu, cộng thêm issue chứ không ghi đè
+  issue do rule tạo ra.
 
-LLM không được tự quyết định:
+Ngoài lượt rà soát bổ sung nói trên, LLM không được tự quyết định:
 
 - Thành phần hồ sơ bắt buộc.
 - Trường bắt buộc trong biểu mẫu.
@@ -98,7 +103,6 @@ LLM không được tự quyết định:
 - Lệ phí.
 - Thời hạn giải quyết.
 - Cơ quan tiếp nhận.
-- Hồ sơ hợp lệ hay không.
 
 Các nội dung này phải đến từ dữ liệu đã chuẩn hóa và Validation Engine.
 
@@ -720,7 +724,7 @@ Không đặt secret trong:
 
 ---
 
-## 13. Đa ngôn ngữ và tiếng Thái Việt Nam
+## 13. Đa ngôn ngữ
 
 ### 13.1 Luồng xử lý
 
@@ -748,8 +752,10 @@ Terminology and citation verification
 
 ### 13.2 Nguyên tắc
 
-- Xác định rõ biến thể tiếng Thái theo khu vực pilot.
-- Không coi mọi biến thể tiếng Thái tại Việt Nam là một ngôn ngữ đồng nhất.
+- Xác định rõ biến thể ngôn ngữ cụ thể được hỗ trợ (ví dụ: Hmong Daw, không
+  gộp chung mọi phương ngữ Hmong).
+- Không coi một ngôn ngữ dân tộc thiểu số là đồng nhất cho mọi cộng đồng nói
+  ngôn ngữ đó.
 - Nội dung pháp lý gốc vẫn là tiếng Việt.
 - Bản dịch hỗ trợ người dân hiểu, không thay thế văn bản pháp lý gốc.
 - Tên văn bản và số hiệu được giữ nguyên bằng tiếng Việt.
@@ -757,10 +763,12 @@ Terminology and citation verification
 
 ### 13.3 Phạm vi Version 1
 
-- UI chính bằng tiếng Việt.
+- UI hỗ trợ đầy đủ bốn ngôn ngữ: tiếng Việt, tiếng Anh, tiếng Hmong (Hmong
+  Daw) và tiếng Khmer — không còn ở giai đoạn pilot.
 - Hệ thống có trường `language_code` trong session và dữ liệu nội dung.
-- Pilot một nhóm FAQ và một biểu mẫu bằng một biến thể tiếng Thái cụ thể.
 - Có glossary song ngữ cho thuật ngữ hành chính quan trọng.
+- Kiến trúc vẫn cho phép bổ sung thêm ngôn ngữ dân tộc thiểu số khác theo
+  cùng phương án ở mục 13.2.
 
 Chi tiết schema ngôn ngữ được mô tả trong `02-schema.md`.
 
@@ -930,12 +938,12 @@ Version 1 cần tối thiểu:
 - Validation unit tests.
 - Prompt và citation tests.
 
-### Giai đoạn 6 — Language pilot
+### Giai đoạn 6 — Đa ngôn ngữ (đã hoàn thành cho tiếng Anh, Hmong Daw, Khmer)
 
 - Language abstraction.
 - Glossary.
-- Chọn biến thể tiếng Thái.
-- Dịch một use case.
+- Chọn biến thể ngôn ngữ cụ thể (Hmong Daw, Khmer).
+- Dịch toàn bộ UI, hướng dẫn điền đơn và trang điều khoản/quyền riêng tư.
 - Review bởi người bản ngữ.
 
 ---
