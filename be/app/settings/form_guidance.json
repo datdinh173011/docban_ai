@@ -1,5 +1,2112 @@
 {
   "version": 1,
-  "candidates": [],
-  "mappings": []
+  "candidates": [
+    {
+      "form_code": "BIRTH_REGISTRATION_FORM",
+      "title_vi": "Tờ khai đăng ký khai sinh",
+      "source_pdf": "01_to_khai_dang_ky_khai_sinh.pdf",
+      "scenario_excerpt": "Trước khi khai báo, hãy kiểm tra kỹ Giấy chứng sinh: họ tên và số định danh của mẹ, ngày giờ sinh, giới tính của trẻ, tên và địa chỉ cơ sở y tế nơi sinh. Nơi sinh trên tờ khai ghi theo cơ sở y tế (ví dụ: Bệnh viện Phụ sản Hà Nội), không ghi theo quê quán. Cha mẹ cần thống nhất trước: họ chữ đệm tên đầy đủ của trẻ, dân tộc, quốc tịch, quê quán. Nếu cha mẹ đã đăng ký kết hôn, hỏi thêm số/quyển số và ngày đăng ký kết hôn để điền phần thông tin hôn nhân. Hỏi người dùng có cần cấp thêm bản sao Giấy khai sinh không và số lượng.",
+      "groups": [
+        {
+          "group_code": "applicant",
+          "label_vi": "Người yêu cầu",
+          "display_order": 1
+        },
+        {
+          "group_code": "child",
+          "label_vi": "Trẻ em",
+          "display_order": 2
+        },
+        {
+          "group_code": "mother",
+          "label_vi": "Mẹ",
+          "display_order": 3
+        },
+        {
+          "group_code": "father",
+          "label_vi": "Cha",
+          "display_order": 4
+        },
+        {
+          "group_code": "marriage",
+          "label_vi": "Hôn nhân của cha mẹ (nếu có)",
+          "display_order": 5
+        },
+        {
+          "group_code": "copies",
+          "label_vi": "Yêu cầu bản sao",
+          "display_order": 6
+        }
+      ],
+      "fields": [
+        {
+          "field_code": "applicant_full_name",
+          "label_vi": "Họ, chữ đệm, tên người yêu cầu",
+          "group_code": "applicant",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "APPLICANT_FULL_NAME_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập họ, chữ đệm, tên người yêu cầu.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 255.2,
+            "y": 692.3,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "applicant_birth_date",
+          "label_vi": "Ngày, tháng, năm sinh người yêu cầu",
+          "group_code": "applicant",
+          "data_type": "date",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "APPLICANT_BIRTH_DATE_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại ngày, tháng, năm sinh người yêu cầu.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 195.9,
+            "y": 673.3,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "applicant_residence",
+          "label_vi": "Nơi cư trú người yêu cầu",
+          "group_code": "applicant",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "APPLICANT_RESIDENCE_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại nơi cư trú người yêu cầu.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 132.2,
+            "y": 654.4,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "applicant_id_document",
+          "label_vi": "Giấy tờ tùy thân người yêu cầu",
+          "group_code": "applicant",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": "\\d{12}",
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "APPLICANT_ID_DOCUMENT_INVALID",
+            "severity": "warning",
+            "message_vi": "Số định danh cá nhân/CCCD nên có 12 chữ số.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 163.1,
+            "y": 617.6,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "relationship_to_child",
+          "label_vi": "Quan hệ với người được khai sinh",
+          "group_code": "applicant",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "RELATIONSHIP_TO_CHILD_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập quan hệ với người được khai sinh.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 256.2,
+            "y": 579.7,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "child_full_name",
+          "label_vi": "Họ, chữ đệm, tên trẻ",
+          "group_code": "child",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "CHILD_FULL_NAME_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập họ, chữ đệm, tên trẻ.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 174.1,
+            "y": 541.8,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "child_birth_date",
+          "label_vi": "Ngày, tháng, năm sinh của trẻ",
+          "group_code": "child",
+          "data_type": "date",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": true,
+            "rule_code": "CHILD_BIRTH_DATE_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Ngày sinh của trẻ không được ở tương lai.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 195.9,
+            "y": 522.9,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "child_gender",
+          "label_vi": "Giới tính",
+          "group_code": "child",
+          "data_type": "enum",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": [
+              "Nam",
+              "Nữ"
+            ],
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "CHILD_GENDER_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập giới tính.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 125.5,
+            "y": 485.0,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "child_ethnicity",
+          "label_vi": "Dân tộc",
+          "group_code": "child",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "CHILD_ETHNICITY_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập dân tộc.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 247.9,
+            "y": 485.0,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "child_nationality",
+          "label_vi": "Quốc tịch",
+          "group_code": "child",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "CHILD_NATIONALITY_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập quốc tịch.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 386.9,
+            "y": 485.0,
+            "width": 152.4,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "child_birth_place",
+          "label_vi": "Nơi sinh (cơ sở y tế)",
+          "group_code": "child",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "CHILD_BIRTH_PLACE_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập nơi sinh (cơ sở y tế).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 123.3,
+            "y": 466.0,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "child_hometown",
+          "label_vi": "Quê quán",
+          "group_code": "child",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "CHILD_HOMETOWN_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại quê quán.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 128.7,
+            "y": 428.1,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "mother_full_name",
+          "label_vi": "Họ, chữ đệm, tên người mẹ",
+          "group_code": "mother",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "MOTHER_FULL_NAME_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập họ, chữ đệm, tên người mẹ.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 229.5,
+            "y": 409.2,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "mother_birth_year",
+          "label_vi": "Năm sinh của mẹ",
+          "group_code": "mother",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "MOTHER_BIRTH_YEAR_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại năm sinh của mẹ.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 128.7,
+            "y": 390.2,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "mother_ethnicity",
+          "label_vi": "Dân tộc của mẹ",
+          "group_code": "mother",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "MOTHER_ETHNICITY_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại dân tộc của mẹ.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 363.8,
+            "y": 390.2,
+            "width": 175.5,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "mother_nationality",
+          "label_vi": "Quốc tịch của mẹ",
+          "group_code": "mother",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "MOTHER_NATIONALITY_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại quốc tịch của mẹ.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 494.7,
+            "y": 390.2,
+            "width": 60.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "mother_residence",
+          "label_vi": "Nơi cư trú của mẹ",
+          "group_code": "mother",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "MOTHER_RESIDENCE_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại nơi cư trú của mẹ.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 132.2,
+            "y": 371.3,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "mother_id_document",
+          "label_vi": "Giấy tờ tùy thân của mẹ",
+          "group_code": "mother",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "MOTHER_ID_DOCUMENT_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại giấy tờ tùy thân của mẹ.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 163.1,
+            "y": 333.4,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "father_full_name",
+          "label_vi": "Họ, chữ đệm, tên người cha",
+          "group_code": "father",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "FATHER_FULL_NAME_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại họ, chữ đệm, tên người cha.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 232.4,
+            "y": 314.4,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "father_birth_year",
+          "label_vi": "Năm sinh của cha",
+          "group_code": "father",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "FATHER_BIRTH_YEAR_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại năm sinh của cha.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 128.7,
+            "y": 295.5,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "father_ethnicity",
+          "label_vi": "Dân tộc của cha",
+          "group_code": "father",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "FATHER_ETHNICITY_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại dân tộc của cha.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 360.6,
+            "y": 295.5,
+            "width": 178.7,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "father_nationality",
+          "label_vi": "Quốc tịch của cha",
+          "group_code": "father",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "FATHER_NATIONALITY_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại quốc tịch của cha.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 488.2,
+            "y": 295.5,
+            "width": 60.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "father_residence",
+          "label_vi": "Nơi cư trú của cha",
+          "group_code": "father",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "FATHER_RESIDENCE_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại nơi cư trú của cha.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 132.2,
+            "y": 276.5,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "father_id_document",
+          "label_vi": "Giấy tờ tùy thân của cha",
+          "group_code": "father",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "FATHER_ID_DOCUMENT_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại giấy tờ tùy thân của cha.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 163.1,
+            "y": 238.6,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "marriage_cert_number",
+          "label_vi": "Số giấy chứng nhận kết hôn",
+          "group_code": "marriage",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "MARRIAGE_CERT_NUMBER_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại số giấy chứng nhận kết hôn.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 250.0,
+            "y": 190.0,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 9,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "marriage_book_number",
+          "label_vi": "Quyển số",
+          "group_code": "marriage",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "MARRIAGE_BOOK_NUMBER_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại quyển số.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 250.0,
+            "y": 190.0,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 9,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "marriage_registration_date",
+          "label_vi": "Ngày đăng ký kết hôn",
+          "group_code": "marriage",
+          "data_type": "date",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "MARRIAGE_REGISTRATION_DATE_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại ngày đăng ký kết hôn.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 250.0,
+            "y": 190.0,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 9,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "marriage_registration_place",
+          "label_vi": "Nơi đăng ký kết hôn",
+          "group_code": "marriage",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "MARRIAGE_REGISTRATION_PLACE_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại nơi đăng ký kết hôn.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 250.0,
+            "y": 190.0,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 9,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "copy_request_needed",
+          "label_vi": "Có yêu cầu cấp bản sao",
+          "group_code": "copies",
+          "data_type": "enum",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": [
+              "Có",
+              "Không"
+            ],
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "COPY_REQUEST_NEEDED_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa chọn có cần bản sao Giấy khai sinh hay không.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 2,
+            "x": 90.0,
+            "y": 60.0,
+            "width": 40.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "copy_count",
+          "label_vi": "Số lượng bản sao",
+          "group_code": "copies",
+          "data_type": "number",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": "\\d+",
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "COPY_COUNT_INVALID",
+            "severity": "blocking_error",
+            "message_vi": "Số lượng bản sao phải là một số.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 2,
+            "x": 160.0,
+            "y": 40.0,
+            "width": 40.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        }
+      ]
+    },
+    {
+      "form_code": "PERMANENT_RESIDENCE_CT01_FORM",
+      "title_vi": "Tờ khai thay đổi thông tin cư trú (Mẫu CT01)",
+      "source_pdf": "02_mau_CT01_TT116_2026.pdf",
+      "scenario_excerpt": "Từ ngày 01/07/2026, tờ khai thay đổi thông tin cư trú dùng để đăng ký thường trú, tạm trú hoặc khai báo thông tin cư trú. Cần xác định rõ nội dung đề nghị cụ thể (ví dụ: đăng ký thường trú tại địa chỉ nào, lý do). Nếu người khai nhập vào hộ gia đình có sẵn, cần thông tin chủ hộ và số định danh của chủ hộ, cùng mối quan hệ với chủ hộ. Lưu ý: tài liệu tham khảo docs/05-scenario.md mô tả một kịch bản dùng Mẫu CT02 cho người Việt Nam định cư ở nước ngoài về nước; ứng dụng này hiện chỉ hỗ trợ điền Mẫu CT01 cho trường hợp đăng ký cư trú trong nước — chỉ dùng phần kịch bản đó để tham khảo văn phong hỏi đáp, không áp dụng máy móc cấu trúc CT02 vào Mẫu CT01.",
+      "groups": [
+        {
+          "group_code": "recipient",
+          "label_vi": "Nơi nhận",
+          "display_order": 1
+        },
+        {
+          "group_code": "applicant",
+          "label_vi": "Người khai",
+          "display_order": 2
+        },
+        {
+          "group_code": "household",
+          "label_vi": "Chủ hộ",
+          "display_order": 3
+        },
+        {
+          "group_code": "request",
+          "label_vi": "Nội dung đề nghị",
+          "display_order": 4
+        },
+        {
+          "group_code": "members",
+          "label_vi": "Thành viên hộ gia đình cùng thay đổi",
+          "display_order": 5
+        }
+      ],
+      "fields": [
+        {
+          "field_code": "recipient_authority",
+          "label_vi": "Kính gửi (cơ quan đăng ký cư trú)",
+          "group_code": "recipient",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "RECIPIENT_AUTHORITY_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập kính gửi (cơ quan đăng ký cư trú).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 83.4,
+            "y": 657.7,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "applicant_full_name",
+          "label_vi": "Họ, chữ đệm và tên khai sinh",
+          "group_code": "applicant",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "APPLICANT_FULL_NAME_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập họ, chữ đệm và tên khai sinh.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 191.8,
+            "y": 641.4,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "applicant_birth_date",
+          "label_vi": "Ngày, tháng, năm sinh",
+          "group_code": "applicant",
+          "data_type": "date",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "APPLICANT_BIRTH_DATE_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại ngày, tháng, năm sinh.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 160.7,
+            "y": 625.2,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "applicant_gender",
+          "label_vi": "Giới tính",
+          "group_code": "applicant",
+          "data_type": "enum",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": [
+              "Nam",
+              "Nữ"
+            ],
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "APPLICANT_GENDER_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại giới tính.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 300.7,
+            "y": 625.2,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "citizen_id",
+          "label_vi": "Số định danh cá nhân",
+          "group_code": "applicant",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": "^\\d{12}$",
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "CITIZEN_ID_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Số định danh cá nhân phải có đúng 12 chữ số.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 155.9,
+            "y": 611.9,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "applicant_phone",
+          "label_vi": "Số điện thoại liên hệ",
+          "group_code": "applicant",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": "^0\\d{9,10}$",
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "APPLICANT_PHONE_INVALID",
+            "severity": "warning",
+            "message_vi": "Số điện thoại nên có 10-11 số và bắt đầu bằng 0.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 151.4,
+            "y": 595.7,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "applicant_email",
+          "label_vi": "Email",
+          "group_code": "applicant",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "APPLICANT_EMAIL_INVALID",
+            "severity": "warning",
+            "message_vi": "Địa chỉ email không hợp lệ.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 322.6,
+            "y": 595.7,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "household_head_name",
+          "label_vi": "Họ, chữ đệm và tên chủ hộ",
+          "group_code": "household",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "HOUSEHOLD_HEAD_NAME_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại họ, chữ đệm và tên chủ hộ.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 177.8,
+            "y": 582.4,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "relationship_to_household_head",
+          "label_vi": "Mối quan hệ với chủ hộ",
+          "group_code": "household",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "RELATIONSHIP_TO_HOUSEHOLD_HEAD_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại mối quan hệ với chủ hộ.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 450.8,
+            "y": 582.4,
+            "width": 105.2,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "household_head_citizen_id",
+          "label_vi": "Số định danh cá nhân của chủ hộ",
+          "group_code": "household",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": "^\\d{12}$",
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "HOUSEHOLD_HEAD_CITIZEN_ID_INVALID",
+            "severity": "warning",
+            "message_vi": "Số định danh cá nhân phải có đúng 12 chữ số.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 208.6,
+            "y": 569.2,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "residence_request",
+          "label_vi": "Nội dung đề nghị",
+          "group_code": "request",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "RESIDENCE_REQUEST_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nêu rõ nội dung đề nghị (ví dụ: đăng ký thường trú tại địa chỉ nào).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 55.6,
+            "y": 538.9,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "household_members",
+          "label_vi": "Thành viên trong hộ gia đình cùng thay đổi",
+          "group_code": "members",
+          "data_type": "table",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "HOUSEHOLD_MEMBERS_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại danh sách thành viên hộ gia đình.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 60.0,
+            "y": 480.0,
+            "width": 470.0,
+            "height": 60,
+            "font_family": "NotoSans",
+            "font_size": 8,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        }
+      ]
+    },
+    {
+      "form_code": "CONSTRUCTION_PERMIT_REQUEST_FORM",
+      "title_vi": "Đơn đề nghị cấp giấy phép xây dựng (nhà ở riêng lẻ)",
+      "source_pdf": "03_don_de_nghi_cap_gpxd_nha_o_rieng_le.pdf",
+      "scenario_excerpt": "Trước khi điền đơn, xác nhận công trình có thuộc diện phải xin giấy phép xây dựng không, và kiểm tra chỉ giới xây dựng, mật độ xây dựng, số tầng được phép tại UBND cấp xã. Đây là đơn xin cấp phép cho nhà ở riêng lẻ (mục 4.4 của mẫu), nên chỉ hỏi các thông tin liên quan: tên/số định danh chủ đầu tư, địa điểm xây dựng, đơn vị thiết kế, cấp công trình, cốt xây dựng, diện tích xây dựng tầng 1, tổng diện tích sàn, chiều cao công trình, số tầng, và thời gian dự kiến hoàn thành. Nếu nhà có nhiều phòng/căn hộ độc lập cho thuê, nhắc người dùng cần khai rõ tổng số căn hộ và diện tích từng căn.",
+      "groups": [
+        {
+          "group_code": "recipient",
+          "label_vi": "Nơi nhận",
+          "display_order": 1
+        },
+        {
+          "group_code": "owner",
+          "label_vi": "Chủ đầu tư",
+          "display_order": 2
+        },
+        {
+          "group_code": "location",
+          "label_vi": "Địa điểm xây dựng",
+          "display_order": 3
+        },
+        {
+          "group_code": "design",
+          "label_vi": "Đơn vị thiết kế",
+          "display_order": 4
+        },
+        {
+          "group_code": "construction",
+          "label_vi": "Nội dung công trình (nhà ở riêng lẻ)",
+          "display_order": 5
+        },
+        {
+          "group_code": "attachments",
+          "label_vi": "Tài liệu kèm theo",
+          "display_order": 6
+        }
+      ],
+      "fields": [
+        {
+          "field_code": "recipient_authority",
+          "label_vi": "Kính gửi (cơ quan cấp phép)",
+          "group_code": "recipient",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "RECIPIENT_AUTHORITY_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập kính gửi (cơ quan cấp phép).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 279.8,
+            "y": 555.6,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "owner_name",
+          "label_vi": "Tên chủ đầu tư (chủ hộ)",
+          "group_code": "owner",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "OWNER_NAME_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập tên chủ đầu tư (chủ hộ).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 167.2,
+            "y": 534.7,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "owner_citizen_id",
+          "label_vi": "Số định danh cá nhân/Mã số doanh nghiệp chủ đầu tư",
+          "group_code": "owner",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": "^\\d{12}$",
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "OWNER_CITIZEN_ID_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Số định danh cá nhân phải có đúng 12 chữ số.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 462.1,
+            "y": 534.7,
+            "width": 93.9,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "representative_name",
+          "label_vi": "Người đại diện",
+          "group_code": "owner",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "REPRESENTATIVE_NAME_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại người đại diện.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 165.4,
+            "y": 513.7,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "representative_title",
+          "label_vi": "Chức vụ người đại diện",
+          "group_code": "owner",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "REPRESENTATIVE_TITLE_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại chức vụ người đại diện.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 262.3,
+            "y": 513.7,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "representative_citizen_id",
+          "label_vi": "Số định danh cá nhân người đại diện",
+          "group_code": "owner",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": "^\\d{12}$",
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "REPRESENTATIVE_CITIZEN_ID_INVALID",
+            "severity": "warning",
+            "message_vi": "Số định danh cá nhân phải có đúng 12 chữ số.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 423.7,
+            "y": 513.7,
+            "width": 132.3,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "phone_number",
+          "label_vi": "Số điện thoại",
+          "group_code": "owner",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": "^0\\d{9,10}$",
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "PHONE_NUMBER_INVALID",
+            "severity": "warning",
+            "message_vi": "Số điện thoại nên có 10-11 số và bắt đầu bằng 0.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 155.8,
+            "y": 492.8,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "land_plot_number",
+          "label_vi": "Lô đất số",
+          "group_code": "location",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "LAND_PLOT_NUMBER_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập lô đất số.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 128.0,
+            "y": 429.9,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "land_area",
+          "label_vi": "Diện tích lô đất (m2)",
+          "group_code": "location",
+          "data_type": "number",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "LAND_AREA_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập diện tích lô đất (m2).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 312.5,
+            "y": 429.9,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "construction_address",
+          "label_vi": "Địa điểm xây dựng",
+          "group_code": "location",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "CONSTRUCTION_ADDRESS_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập địa điểm xây dựng.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 100.0,
+            "y": 391.0,
+            "width": 440.0,
+            "height": 14,
+            "font_size": 9,
+            "font_family": "NotoSans",
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "design_org_name",
+          "label_vi": "Tên tổ chức/cá nhân lập thiết kế",
+          "group_code": "design",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "DESIGN_ORG_NAME_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại tên tổ chức/cá nhân lập thiết kế.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 192.8,
+            "y": 304.2,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "design_org_license_number",
+          "label_vi": "Mã số chứng chỉ năng lực/hành nghề (thiết kế)",
+          "group_code": "design",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "DESIGN_ORG_LICENSE_NUMBER_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại mã số chứng chỉ năng lực/hành nghề (thiết kế).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 421.2,
+            "y": 304.2,
+            "width": 134.8,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "review_org_name",
+          "label_vi": "Tên tổ chức/cá nhân thẩm tra thiết kế",
+          "group_code": "design",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "REVIEW_ORG_NAME_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại tên tổ chức/cá nhân thẩm tra thiết kế.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 192.8,
+            "y": 241.4,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "review_org_license_number",
+          "label_vi": "Mã số chứng chỉ năng lực/hành nghề (thẩm tra)",
+          "group_code": "design",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "REVIEW_ORG_LICENSE_NUMBER_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại mã số chứng chỉ năng lực/hành nghề (thẩm tra).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 1,
+            "x": 431.0,
+            "y": 241.4,
+            "width": 125.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "building_grade",
+          "label_vi": "Cấp công trình",
+          "group_code": "construction",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "BUILDING_GRADE_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập cấp công trình.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 2,
+            "x": 164.5,
+            "y": 297.1,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "construction_elevation",
+          "label_vi": "Cốt xây dựng (m)",
+          "group_code": "construction",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "CONSTRUCTION_ELEVATION_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại cốt xây dựng (m).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 2,
+            "x": 157.8,
+            "y": 276.1,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "setback_distance",
+          "label_vi": "Khoảng lùi (m, nếu có)",
+          "group_code": "construction",
+          "data_type": "string",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "SETBACK_DISTANCE_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại khoảng lùi (m, nếu có).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 2,
+            "x": 141.7,
+            "y": 255.2,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "first_floor_area",
+          "label_vi": "Diện tích xây dựng tầng 1 (m2)",
+          "group_code": "construction",
+          "data_type": "number",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "FIRST_FLOOR_AREA_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập diện tích xây dựng tầng 1 (m2).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 2,
+            "x": 218.8,
+            "y": 234.2,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "total_floor_area",
+          "label_vi": "Tổng diện tích sàn (m2)",
+          "group_code": "construction",
+          "data_type": "number",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "TOTAL_FLOOR_AREA_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập tổng diện tích sàn (m2).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 2,
+            "x": 183.6,
+            "y": 213.3,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "building_height",
+          "label_vi": "Chiều cao công trình (m)",
+          "group_code": "construction",
+          "data_type": "string",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "BUILDING_HEIGHT_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập chiều cao công trình (m).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 2,
+            "x": 195.9,
+            "y": 177.4,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "floor_count",
+          "label_vi": "Số tầng",
+          "group_code": "construction",
+          "data_type": "number",
+          "required": true,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "FLOOR_COUNT_REQUIRED",
+            "severity": "blocking_error",
+            "message_vi": "Bạn chưa nhập số tầng.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 2,
+            "x": 126.6,
+            "y": 141.5,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "estimated_completion_months",
+          "label_vi": "Dự kiến thời gian hoàn thành (tháng)",
+          "group_code": "construction",
+          "data_type": "number",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "ESTIMATED_COMPLETION_MONTHS_INVALID",
+            "severity": "warning",
+            "message_vi": "Vui lòng kiểm tra lại dự kiến thời gian hoàn thành (tháng).",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 4,
+            "x": 301.1,
+            "y": 665.1,
+            "width": 220.0,
+            "height": 14,
+            "font_family": "NotoSans",
+            "font_size": 10,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        },
+        {
+          "field_code": "attached_documents",
+          "label_vi": "Danh mục tài liệu gửi kèm theo đơn",
+          "group_code": "attachments",
+          "data_type": "table",
+          "required": false,
+          "do_not_infer": true,
+          "validation": {
+            "regex": null,
+            "enum_values": null,
+            "max_length": null,
+            "not_future_date": false,
+            "rule_code": "ATTACHED_DOCUMENTS_INVALID",
+            "severity": "suggestion",
+            "message_vi": "Vui lòng liệt kê rõ tài liệu gửi kèm.",
+            "suggestion_vi": null
+          },
+          "export": {
+            "page": 4,
+            "x": 45.0,
+            "y": 560.0,
+            "width": 470.0,
+            "height": 40,
+            "font_family": "NotoSans",
+            "font_size": 9,
+            "align": "left",
+            "format": "text",
+            "overflow_policy": "reject"
+          }
+        }
+      ]
+    }
+  ],
+  "mappings": [
+    {
+      "form_code": "BIRTH_REGISTRATION_FORM",
+      "match_procedure_codes": [],
+      "match_keywords": [
+        "khai sinh",
+        "đăng ký khai sinh",
+        "giấy khai sinh"
+      ]
+    },
+    {
+      "form_code": "PERMANENT_RESIDENCE_CT01_FORM",
+      "match_procedure_codes": [],
+      "match_keywords": [
+        "thường trú",
+        "cư trú",
+        "ct01",
+        "tạm trú"
+      ]
+    },
+    {
+      "form_code": "CONSTRUCTION_PERMIT_REQUEST_FORM",
+      "match_procedure_codes": [
+        "1.013225"
+      ],
+      "match_keywords": [
+        "giấy phép xây dựng",
+        "nhà ở riêng lẻ",
+        "gpxd",
+        "xin phép xây"
+      ]
+    }
+  ]
 }

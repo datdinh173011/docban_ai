@@ -16,7 +16,13 @@ async def test_session_is_created_saved_and_deleted() -> None:
         "intent": "general",
         "active_procedure_code": None,
         "active_scenario_code": None,
-        "external_search_consent": False,
+        "candidate_codes": [],
+        "selection_filters": {},
+        "pending_filter": None,
+        "locality_required": False,
+        "administrative_area_code": None,
+        "form_draft": {},
+        "last_validation": {},
     }
 
     await store.save(session_id, {"messages": [{"role": "user", "content": "Xin chào"}], "intent": "general"})

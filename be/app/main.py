@@ -14,13 +14,16 @@ from sqlalchemy import text
 
 from app.config import Settings, get_settings
 from app.db import create_database_engine
+from app.form_conversation import maybe_fill_form
+from app.form_export import ExportError, render_export
+from app.form_validation import canonical_input_hash, validate_form
 from app.logging_config import configure_logging
 from app.procedure_catalog import load_catalog
 from app.procedure_pipeline import ProcedurePipeline, ReviewRegistry
 from app.procedure_embeddings import ProcedureEmbeddingClient
 from app.procedure_rag import ProcedureRagService
 from app.procedure_settings import get_procedure_settings
-from app.schemas import ChatRequest
+from app.schemas import ChatRequest, FormDraftResponse, FormDraftUpdateRequest, FormExportRequest, FormFieldSchema, FormGroupSchema, FormSchemaResponse, ValidationResult
 from app.session_store import SessionStore
 
 logger = logging.getLogger(__name__)
@@ -63,7 +66,7 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         CORSMiddleware,
         allow_origins=[settings.cors_origin],
         allow_credentials=True,
-        allow_methods=["GET", "POST", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Content-Type"],
     )
 
@@ -128,20 +131,26 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     "pending_filter": state.get("pending_filter"),
                     "locality_required": state.get("locality_required", False),
                 })
-                reply = result["reply"]
+                reply, form_patch = await maybe_fill_form(
+                    state, result, settings, app.state.procedure_pipeline.procedure_settings, messages,
+                )
                 for word in reply.answer.split(" "):
                     yield sse("message.delta", {"text": f"{word} "})
                     await asyncio.sleep(0)
+                form_code = form_patch["form_code"] if form_patch else None
                 new_state = {
                     "messages": [*messages, {"role": "assistant", "content": reply.answer}][-12:],
                     "language_code": chat_request.language_code,
                     "intent": reply.intent,
                     "active_procedure_code": result.get("active_procedure_code"),
+                    "active_scenario_code": form_code if form_code else state.get("active_scenario_code"),
                     "candidate_codes": result.get("candidate_codes", []),
                     "selection_filters": result.get("selection_filters", {}),
                     "pending_filter": result.get("pending_filter"),
                     "locality_required": result.get("locality_required", False),
                     "administrative_area_code": result.get("administrative_area_code"),
+                    "form_draft": {**state.get("form_draft", {}), form_code: form_patch["fields"]} if form_patch else state.get("form_draft", {}),
+                    "last_validation": state.get("last_validation", {}),
                 }
                 await app.state.store.save(current_session_id, new_state)
                 yield sse("message.complete", {
@@ -154,6 +163,7 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     "confidence_reasons": reply.confidence_reasons,
                     "external_search_used": reply.external_search_used,
                     "external_search_consent_required": reply.external_search_consent_required,
+                    "form_code": form_code,
                 })
                 logger.info("chat_complete request_id=%s session=%s latency_ms=%d", request_id, session_hash(current_session_id), (time.perf_counter() - started) * 1000)
             except Exception as exc:  # Keep the SSE connection protocol stable for clients.
@@ -184,6 +194,104 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         if root not in target.parents or not target.is_file():
             raise HTTPException(status_code=404, detail="Source file not found")
         return FileResponse(target, media_type="application/pdf", filename=target.name)
+
+    def _form_candidate_or_404(form_code: str):
+        candidate = app.state.procedure_pipeline.procedure_settings.form_candidates.get(form_code)
+        if candidate is None:
+            raise HTTPException(status_code=404, detail="Unknown form_code")
+        return candidate
+
+    @app.get("/api/v1/forms/{form_code}/schema")
+    async def form_schema(form_code: str) -> FormSchemaResponse:
+        candidate = _form_candidate_or_404(form_code)
+        return FormSchemaResponse(
+            form_code=candidate.form_code,
+            title_vi=candidate.title_vi,
+            groups=[
+                FormGroupSchema(group_code=group.group_code, label_vi=group.label_vi, display_order=group.display_order)
+                for group in candidate.groups
+            ],
+            fields=[
+                FormFieldSchema(
+                    field_code=field.field_code,
+                    label_vi=field.label_vi,
+                    group_code=field.group_code,
+                    data_type=field.data_type,
+                    required=field.required,
+                    enum_values=list(field.validation.enum_values) if field.validation.enum_values else None,
+                )
+                for field in candidate.fields
+            ],
+        )
+
+    @app.get("/api/v1/forms/{form_code}/draft")
+    async def get_form_draft(
+        form_code: str, http_response: Response, session_id: str | None = Cookie(default=None, alias=settings.session_cookie_name),
+    ) -> FormDraftResponse:
+        _form_candidate_or_404(form_code)
+        current_session_id, state, is_new = await ensure_session(session_id)
+        if is_new:
+            set_session_cookie(http_response, current_session_id)
+        return FormDraftResponse(form_code=form_code, fields=state.get("form_draft", {}).get(form_code, {}), updated_at=state.get("updated_at"))
+
+    @app.put("/api/v1/forms/{form_code}/draft")
+    async def update_form_draft(
+        form_code: str,
+        payload: FormDraftUpdateRequest,
+        http_response: Response,
+        session_id: str | None = Cookie(default=None, alias=settings.session_cookie_name),
+    ) -> FormDraftResponse:
+        _form_candidate_or_404(form_code)
+        current_session_id, state, is_new = await ensure_session(session_id)
+        if is_new:
+            set_session_cookie(http_response, current_session_id)
+        merged = {**state.get("form_draft", {}).get(form_code, {}), **payload.fields}
+        new_state = {**state, "form_draft": {**state.get("form_draft", {}), form_code: merged}}
+        await app.state.store.save(current_session_id, new_state)
+        return FormDraftResponse(form_code=form_code, fields=merged, updated_at=new_state.get("updated_at"))
+
+    @app.post("/api/v1/forms/{form_code}/validate")
+    async def validate_form_draft(
+        form_code: str, http_response: Response, session_id: str | None = Cookie(default=None, alias=settings.session_cookie_name),
+    ) -> ValidationResult:
+        candidate = _form_candidate_or_404(form_code)
+        current_session_id, state, is_new = await ensure_session(session_id)
+        if is_new:
+            set_session_cookie(http_response, current_session_id)
+        draft = state.get("form_draft", {}).get(form_code, {})
+        result = validate_form(candidate, draft)
+        new_state = {**state, "last_validation": {**state.get("last_validation", {}), form_code: result.model_dump()}}
+        await app.state.store.save(current_session_id, new_state)
+        return result
+
+    @app.post("/api/v1/forms/{form_code}/exports/pdf")
+    async def export_form_pdf(
+        form_code: str,
+        payload: FormExportRequest,
+        http_response: Response,
+        session_id: str | None = Cookie(default=None, alias=settings.session_cookie_name),
+    ) -> Response:
+        candidate = _form_candidate_or_404(form_code)
+        current_session_id, state, is_new = await ensure_session(session_id)
+        if is_new:
+            set_session_cookie(http_response, current_session_id)
+        stored = state.get("last_validation", {}).get(form_code)
+        if not stored or stored.get("validation_id") != payload.validation_id:
+            raise HTTPException(status_code=409, detail="Unknown or mismatched validation_id; validate the form again")
+        draft = state.get("form_draft", {}).get(form_code, {})
+        if canonical_input_hash(draft) != stored.get("input_hash"):
+            raise HTTPException(status_code=409, detail="Form data changed since validation; validate again before exporting")
+        if stored.get("summary", {}).get("blocking_error", 0) > 0:
+            raise HTTPException(status_code=422, detail="Form still has blocking errors; fix them before exporting")
+        try:
+            pdf_bytes = render_export(candidate, draft)
+        except ExportError as exc:
+            raise HTTPException(status_code=422, detail=f"export_failed:{exc.reason}:{exc.field_code}") from exc
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{form_code.lower()}.pdf"'},
+        )
 
     return app
 

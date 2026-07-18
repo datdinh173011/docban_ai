@@ -3,8 +3,10 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 RUN apt-get update && apt-get install --no-install-recommends -y \
-    poppler-utils tesseract-ocr tesseract-ocr-vie \
+    poppler-utils tesseract-ocr tesseract-ocr-vie fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
+# fonts-noto-core provides /usr/share/fonts/truetype/noto/NotoSans-Regular.ttf, which
+# app/form_export.py registers for Vietnamese-diacritic PDF overlay rendering.
 RUN uv sync --no-dev --no-install-project
 COPY . .
 ENV PATH="/opt/venv/bin:$PATH"
