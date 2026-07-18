@@ -12,6 +12,11 @@ export type StreamEvent =
     externalSearchUsed: boolean;
     externalSearchConsentRequired: boolean;
     formCode: string | null;
+    uiAction: {
+      type: "open_form_review";
+      autoValidate: boolean;
+      requestId: string;
+    } | null;
   }
   | { type: "error"; message: string };
 
@@ -141,6 +146,11 @@ export async function streamChat(
         externalSearchUsed: Boolean(payload.external_search_used),
         externalSearchConsentRequired: Boolean(payload.external_search_consent_required),
         formCode: (payload.form_code as string | null) ?? null,
+        uiAction: payload.ui_action && typeof payload.ui_action === "object" ? {
+          type: "open_form_review",
+          autoValidate: Boolean((payload.ui_action as Record<string, unknown>).auto_validate),
+          requestId: String((payload.ui_action as Record<string, unknown>).request_id ?? ""),
+        } : null,
       });
       if (event === "error") onEvent({ type: event, message: String(payload.message ?? "Có lỗi xảy ra.") });
     });

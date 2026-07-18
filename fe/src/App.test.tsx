@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
-import { bootstrapSession, deleteSession, streamChat } from "./api";
+import { bootstrapSession, deleteSession, streamChat, validateForm } from "./api";
 
 vi.mock("./api", () => ({
   bootstrapSession: vi.fn().mockResolvedValue(undefined),
@@ -18,7 +18,15 @@ vi.mock("./api", () => ({
   getFormSchema: vi.fn().mockResolvedValue({ form_code: "BIRTH_REGISTRATION_FORM", title_vi: "Tờ khai đăng ký khai sinh", groups: [], fields: [] }),
   getFormDraft: vi.fn().mockResolvedValue({ form_code: "BIRTH_REGISTRATION_FORM", fields: {}, updated_at: null }),
   updateFormDraft: vi.fn().mockResolvedValue({ form_code: "BIRTH_REGISTRATION_FORM", fields: {}, updated_at: null }),
-  validateForm: vi.fn(),
+  validateForm: vi.fn().mockResolvedValue({
+    validation_id: "validation-1",
+    form_code: "BIRTH_REGISTRATION_FORM",
+    input_hash: "hash",
+    status: "invalid",
+    summary: { blocking_error: 1, warning: 0, suggestion: 0, unable_to_verify: 0 },
+    issues: [],
+    validated_at: "2026-07-19T00:00:00Z",
+  }),
   exportFormPdf: vi.fn(),
 }));
 
@@ -38,6 +46,7 @@ describe("App", () => {
     expect(await screen.findByText("Phản hồi thử nghiệm")).toBeInTheDocument();
     expect(screen.getByText("Hỏi thêm")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Luật Hộ tịch" })).toHaveAttribute("href", "https://example.test/source");
+    expect(screen.queryByText(/Độ tin cậy:/)).not.toBeInTheDocument();
   });
 
   it("keeps the message stream at its newest content", async () => {
@@ -57,6 +66,48 @@ describe("App", () => {
     render(<App />);
     fireEvent.click(screen.getByText(/Rà soát & Kiểm tra đơn/));
     expect(await screen.findByText("Chọn mẫu đơn để rà soát")).toBeInTheDocument();
+  });
+
+  it("opens the review tab and validates once for a review UI action", async () => {
+    vi.mocked(validateForm).mockResolvedValueOnce({
+      validation_id: "validation-owner-id-missing",
+      form_code: "BIRTH_REGISTRATION_FORM",
+      input_hash: "missing-owner-id",
+      status: "invalid",
+      summary: { blocking_error: 1, warning: 0, suggestion: 0, unable_to_verify: 0 },
+      issues: [{
+        issue_code: "FIELD_REQUIRED",
+        rule_code: "OWNER_CITIZEN_ID_REQUIRED",
+        field_code: "owner_citizen_id",
+        severity: "blocking_error",
+        message_vi: "Số định danh cá nhân/Mã số doanh nghiệp chủ đầu tư là bắt buộc.",
+        suggestion_vi: null,
+      }],
+      validated_at: "2026-07-19T00:00:00Z",
+    });
+    vi.mocked(streamChat).mockImplementationOnce(async (_message, _language, _translationConsent, _searchConsent, onEvent) => {
+      onEvent({ type: "message.delta", text: "Đang mở đơn" });
+      onEvent({
+        type: "message.complete",
+        intent: "form_guidance",
+        quickReplies: [],
+        citations: [],
+        answerStrategy: "high",
+        confidenceBand: "high",
+        confidenceReasons: [],
+        externalSearchUsed: false,
+        externalSearchConsentRequired: false,
+        formCode: "BIRTH_REGISTRATION_FORM",
+        uiAction: { type: "open_form_review", autoValidate: true, requestId: "review-1" },
+      });
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByText("Tôi muốn đăng ký khai sinh cho bé"));
+
+    expect(await screen.findByText("Tờ khai đăng ký khai sinh")).toBeInTheDocument();
+    await waitFor(() => expect(validateForm).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("Số định danh cá nhân/Mã số doanh nghiệp chủ đầu tư là bắt buộc.")).toBeInTheDocument();
   });
 
   it("starts a clean English session when changing languages", async () => {

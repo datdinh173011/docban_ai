@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FormSchemaResponse,
   ApiError,
@@ -149,7 +149,12 @@ function ResultPanel({
   );
 }
 
-export function ReviewForm({ activeFormCode, locale, onFormCodeConsumed }: { activeFormCode: string | null; locale: Locale; onFormCodeConsumed: () => void }) {
+export function ReviewForm({ activeFormCode, autoValidateRequestId, locale, onFormCodeConsumed }: {
+  activeFormCode: string | null;
+  autoValidateRequestId: string | null;
+  locale: Locale;
+  onFormCodeConsumed: () => void;
+}) {
   const [formCode, setFormCode] = useState<string | null>(activeFormCode);
   const [schema, setSchema] = useState<FormSchemaResponse | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -163,6 +168,7 @@ export function ReviewForm({ activeFormCode, locale, onFormCodeConsumed }: { act
   const [error, setError] = useState<string | null>(null);
   const text = copy[locale];
   const previewUrl = useMemo(() => (previewBlob ? URL.createObjectURL(previewBlob) : null), [previewBlob]);
+  const consumedReviewRequests = useRef(new Set<string>());
 
   useEffect(() => {
     return () => {
@@ -228,6 +234,13 @@ export function ReviewForm({ activeFormCode, locale, onFormCodeConsumed }: { act
       setValidating(false);
     }
   }
+
+  useEffect(() => {
+    if (!autoValidateRequestId || !formCode || schema?.form_code !== formCode || loading || validating) return;
+    if (consumedReviewRequests.current.has(autoValidateRequestId)) return;
+    consumedReviewRequests.current.add(autoValidateRequestId);
+    void runValidation();
+  }, [autoValidateRequestId, formCode, schema, loading, validating]);
 
   async function runExport() {
     if (!formCode || !validation) return;

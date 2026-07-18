@@ -11,7 +11,6 @@ type Message = {
   content: string;
   quickReplies?: string[];
   citations?: Citation[];
-  confidenceBand?: "high" | "medium" | "low" | null;
   answerStrategy?: string;
   externalSearchConsentRequired?: boolean;
 };
@@ -33,6 +32,7 @@ export function App() {
   const [reviewTab, setReviewTab] = useState(false);
   const [activeFormCode, setActiveFormCode] = useState<string | null>(null);
   const [formCodePending, setFormCodePending] = useState(false);
+  const [reviewRequestId, setReviewRequestId] = useState<string | null>(null);
   const [externalSearchConsent, setExternalSearchConsent] = useState<boolean | null>(null);
   const [translationConsent, setTranslationConsent] = useState<boolean | null>(null);
   const [pendingTranslation, setPendingTranslation] = useState<string | null>(null);
@@ -122,7 +122,6 @@ export function App() {
             ...item,
             quickReplies: event.quickReplies,
             citations: event.citations,
-            confidenceBand: event.confidenceBand,
             answerStrategy: event.answerStrategy,
             externalSearchConsentRequired: event.externalSearchConsentRequired,
           } : item));
@@ -130,6 +129,12 @@ export function App() {
           if (event.formCode) {
             setActiveFormCode(event.formCode);
             setFormCodePending(true);
+          }
+          if (event.uiAction?.type === "open_form_review" && event.formCode) {
+            setActiveFormCode(event.formCode);
+            setReviewRequestId(event.uiAction.autoValidate ? event.uiAction.requestId : null);
+            setFormCodePending(false);
+            setReviewTab(true);
           }
         }
         if (event.type === "translation.consent_required") {
@@ -164,6 +169,7 @@ export function App() {
     setReviewTab(false);
     setActiveFormCode(null);
     setFormCodePending(false);
+    setReviewRequestId(null);
     setExternalSearchConsent(null);
     setTranslationConsent(null);
     setPendingExternalSearchMessage(null);
@@ -187,6 +193,7 @@ export function App() {
     setReviewTab(false);
     setActiveFormCode(null);
     setFormCodePending(false);
+    setReviewRequestId(null);
     setExternalSearchConsent(null);
     setTranslationConsent(null);
     setPendingTranslation(null);
@@ -288,8 +295,8 @@ export function App() {
         </nav>
       </div>
 
-      {reviewTab ? <main className="review-panel"><ReviewForm activeFormCode={activeFormCode} locale={language.code} onFormCodeConsumed={consumeActiveFormCode} /></main> : <main className="conversation">
-        {!isChatting ? <section className="welcome"><span className="mascot" aria-hidden="true">✦</span><h2>{text.welcome} <em>ICIVI</em> 👋</h2><p>{text.welcomeBody}</p><form className="input-wrap welcome-input" onSubmit={submit}><input aria-label={text.send} value={input} onChange={(event) => setInput(event.target.value)} placeholder={text.welcomeInput} /><button aria-label={text.send} type="submit">➤</button></form><div className="suggestions">{suggestions(language.code).map((item, index) => <button className={index === 0 ? "primary" : ""} key={item} onClick={() => void send(item)}>{item}</button>)}</div>{notice && <p className="notice" role="status">{notice}</p>}<p className="privacy">🔒 {text.privacy}</p></section> : <><button className="back" onClick={() => void reset()}>← {text.newSession}</button><section className="stream" ref={streamRef} data-testid="message-stream" aria-live="polite">{messages.map((message) => <article key={message.id} className={`message ${message.role}`}><div className="speaker">{message.role === "assistant" ? `✦ ${text.assistant}` : text.you}</div><p>{message.content || ""}</p>{message.confidenceBand && <p className={`confidence ${message.confidenceBand}`}>{text.confidence}: {text[message.confidenceBand]}</p>}{message.citations && message.citations.length > 0 && <ol className="citations" aria-label={text.citations}>{message.citations.map((citation) => <li key={citation.citation_id}><strong>[{citation.citation_id}]</strong> {citation.source_status === "snapshot" ? text.snapshot : text.verified} {citation.source_url ? <a href={citation.source_url} rel="noreferrer" target="_blank">{citation.source_title}</a> : citation.source_title}{citation.procedure_code ? ` (${text.sourceCode} ${citation.procedure_code})` : ""}{citation.document_number ? ` — ${citation.document_number}` : ""}{citation.section_reference ? ` — ${citation.section_reference}` : ""}{citation.crawled_at ? ` — ${new Date(citation.crawled_at).toLocaleDateString(language.dateLocale)}` : ""}</li>)}</ol>}{message.externalSearchConsentRequired && pendingExternalSearchMessage && <button onClick={() => { setExternalSearchConsent(true); setPendingExternalSearchMessage(null); void send(pendingExternalSearchMessage); }}>{text.externalSearch}</button>}{message.quickReplies && message.quickReplies.length > 0 && <div className="quick-replies">{message.quickReplies.map((reply) => <button key={reply} onClick={() => void send(reply)}>{reply}</button>)}</div>}</article>)}{streaming && <div className="typing" aria-label={text.typing}><i /><i /><i /></div>}</section><form className="input-bar" onSubmit={submit}><div className="input-wrap"><input aria-label={text.input} value={input} onChange={(event) => setInput(event.target.value)} placeholder={text.input} disabled={streaming} /><button aria-label={text.send} type="submit" disabled={streaming}>➤</button></div></form></>}
+      {reviewTab ? <main className="review-panel"><ReviewForm activeFormCode={activeFormCode} autoValidateRequestId={reviewRequestId} locale={language.code} onFormCodeConsumed={consumeActiveFormCode} /></main> : <main className="conversation">
+        {!isChatting ? <section className="welcome"><span className="mascot" aria-hidden="true">✦</span><h2>{text.welcome} <em>ICIVI</em> 👋</h2><p>{text.welcomeBody}</p><form className="input-wrap welcome-input" onSubmit={submit}><input aria-label={text.send} value={input} onChange={(event) => setInput(event.target.value)} placeholder={text.welcomeInput} /><button aria-label={text.send} type="submit">➤</button></form><div className="suggestions">{suggestions(language.code).map((item, index) => <button className={index === 0 ? "primary" : ""} key={item} onClick={() => void send(item)}>{item}</button>)}</div>{notice && <p className="notice" role="status">{notice}</p>}<p className="privacy">🔒 {text.privacy}</p></section> : <><button className="back" onClick={() => void reset()}>← {text.newSession}</button><section className="stream" ref={streamRef} data-testid="message-stream" aria-live="polite">{messages.map((message) => <article key={message.id} className={`message ${message.role}`}><div className="speaker">{message.role === "assistant" ? `✦ ${text.assistant}` : text.you}</div><p>{message.content || ""}</p>{message.citations && message.citations.length > 0 && <ol className="citations" aria-label={text.citations}>{message.citations.map((citation) => <li key={citation.citation_id}><strong>[{citation.citation_id}]</strong> {citation.source_status === "snapshot" ? text.snapshot : text.verified} {citation.source_url ? <a href={citation.source_url} rel="noreferrer" target="_blank">{citation.source_title}</a> : citation.source_title}{citation.procedure_code ? ` (${text.sourceCode} ${citation.procedure_code})` : ""}{citation.document_number ? ` — ${citation.document_number}` : ""}{citation.section_reference ? ` — ${citation.section_reference}` : ""}{citation.crawled_at ? ` — ${new Date(citation.crawled_at).toLocaleDateString(language.dateLocale)}` : ""}</li>)}</ol>}{message.externalSearchConsentRequired && pendingExternalSearchMessage && <button onClick={() => { setExternalSearchConsent(true); setPendingExternalSearchMessage(null); void send(pendingExternalSearchMessage); }}>{text.externalSearch}</button>}{message.quickReplies && message.quickReplies.length > 0 && <div className="quick-replies">{message.quickReplies.map((reply) => <button key={reply} onClick={() => void send(reply)}>{reply}</button>)}</div>}</article>)}{streaming && <div className="typing" aria-label={text.typing}><i /><i /><i /></div>}</section><form className="input-bar" onSubmit={submit}><div className="input-wrap"><input aria-label={text.input} value={input} onChange={(event) => setInput(event.target.value)} placeholder={text.input} disabled={streaming} /><button aria-label={text.send} type="submit" disabled={streaming}>➤</button></div></form></>}
       </main>}
       {pendingTranslation && <div className="consent-backdrop" role="presentation"><section aria-labelledby="translation-title" aria-modal="true" className="consent-dialog" role="dialog"><h2 id="translation-title">{text.translationTitle}</h2><p>{text.translationBody.replace("{provider}", translationProvider)}</p><div><button onClick={declineTranslation} type="button">{text.decline}</button><button className="primary" onClick={allowTranslation} type="button">{text.allow}</button></div></section></div>}
     </div>
