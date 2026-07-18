@@ -25,6 +25,10 @@ export type Citation = {
   administrative_area_code: string | null;
   quote_preview: string;
   source_type: "government" | "external";
+  source_status?: "snapshot" | "reviewed";
+  crawled_at?: string | null;
+  procedure_code?: string | null;
+  snapshot_path?: string | null;
 };
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
