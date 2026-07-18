@@ -1,3 +1,4 @@
+import httpx
 import pytest
 from fakeredis.aioredis import FakeRedis
 from httpx import ASGITransport, AsyncClient
@@ -26,7 +27,14 @@ TEST_DATABASE_URL = "postgresql+asyncpg://test:test@localhost:5432/test"
 @pytest.fixture
 def app():
     return create_app(
-        Settings(llm_api_key="", llm_model="", environment="LOCAL", session_ttl_seconds=1800, database_url=TEST_DATABASE_URL),
+        Settings(
+            llm_api_key="",
+            llm_model="",
+            llm_debug_logging=False,
+            environment="LOCAL",
+            session_ttl_seconds=1800,
+            database_url=TEST_DATABASE_URL,
+        ),
         FakeRedis(decode_responses=True),
     )
 
@@ -140,10 +148,310 @@ async def test_citations_are_suppressed_when_form_guidance_overrides_the_reply(a
             session_id = client.cookies.get("icivi_session")
             state = await app.state.store.get(session_id)
             state["active_scenario_code"] = "BIRTH_REGISTRATION_FORM"
+            state["active_procedure_code"] = "5.003859"
             state["form_draft"] = {"BIRTH_REGISTRATION_FORM": {}}
             await app.state.store.save(session_id, state)
 
-            response = await client.post("/api/v1/chat/stream", json={"message": "thủ tục 5.003859 cần hồ sơ gì", "language_code": "vi"})
+            response = await client.post("/api/v1/chat/stream", json={"message": "Cần hồ sơ gì?", "language_code": "vi"})
     payload = _complete_payload(response.text)
     assert payload["intent"] == "form_guidance"
     assert payload["citations"] == []
+
+
+@pytest.mark.asyncio
+async def test_review_request_opens_active_form_and_skips_procedure_rag(app, monkeypatch) -> None:
+    async with app.router.lifespan_context(app):
+        async def fail_if_called(_state):
+            raise AssertionError("procedure pipeline must not run for a form review route")
+
+        monkeypatch.setattr(app.state.procedure_pipeline, "ainvoke", fail_if_called)
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            await client.post("/api/v1/sessions")
+            session_id = client.cookies.get("icivi_session")
+            state = await app.state.store.get(session_id)
+            state["active_scenario_code"] = "BIRTH_REGISTRATION_FORM"
+            state["conversation_context"]["active_form_code"] = "BIRTH_REGISTRATION_FORM"
+            state["form_draft"] = {"BIRTH_REGISTRATION_FORM": {"child_full_name": "Nguyễn Văn A"}}
+            await app.state.store.save(session_id, state)
+
+            response = await client.post(
+                "/api/v1/chat/stream",
+                json={"message": "Tôi điền xong rồi, kiểm tra đơn giúp tôi", "language_code": "vi"},
+            )
+
+    payload = _complete_payload(response.text)
+    assert payload["form_code"] == "BIRTH_REGISTRATION_FORM"
+    assert payload["citations"] == []
+    assert payload["ui_action"]["type"] == "open_form_review"
+    assert payload["ui_action"]["auto_validate"] is True
+    assert payload["ui_action"]["request_id"]
+
+
+@pytest.mark.asyncio
+async def test_explicit_finish_opens_incomplete_active_form_for_review(app, monkeypatch) -> None:
+    async with app.router.lifespan_context(app):
+        async def fail_if_called(*args, **kwargs):
+            raise AssertionError("finish route must skip procedure and form LLM pipelines")
+
+        from app import main as main_module
+
+        monkeypatch.setattr(app.state.procedure_pipeline, "ainvoke", fail_if_called)
+        monkeypatch.setattr(main_module, "maybe_fill_form", fail_if_called)
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            await client.post("/api/v1/sessions")
+            session_id = client.cookies.get("icivi_session")
+            state = await app.state.store.get(session_id)
+            state["active_scenario_code"] = "CONSTRUCTION_PERMIT_REQUEST_FORM"
+            state["conversation_context"]["active_form_code"] = "CONSTRUCTION_PERMIT_REQUEST_FORM"
+            state["form_draft"] = {
+                "CONSTRUCTION_PERMIT_REQUEST_FORM": {"owner_name": "Nguyễn Văn A"},
+            }
+            await app.state.store.save(session_id, state)
+
+            response = await client.post(
+                "/api/v1/chat/stream",
+                json={"message": "Không, kết thúc", "language_code": "vi"},
+            )
+            validation = await client.post("/api/v1/forms/CONSTRUCTION_PERMIT_REQUEST_FORM/validate")
+
+    payload = _complete_payload(response.text)
+    assert payload["form_code"] == "CONSTRUCTION_PERMIT_REQUEST_FORM"
+    assert payload["ui_action"]["type"] == "open_form_review"
+    assert payload["ui_action"]["auto_validate"] is True
+    assert validation.json()["status"] == "invalid"
+    assert any(
+        issue["issue_code"] == "FIELD_REQUIRED" and issue["field_code"] == "owner_citizen_id"
+        for issue in validation.json()["issues"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_finish_without_active_form_does_not_open_review(app) -> None:
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/chat/stream",
+                json={"message": "Kết thúc", "language_code": "vi"},
+            )
+
+    payload = _complete_payload(response.text)
+    assert payload["form_code"] is None
+    assert payload["ui_action"] is None
+
+
+@pytest.mark.asyncio
+async def test_plain_no_keeps_incomplete_active_form_in_filling_flow(app) -> None:
+    async with app.router.lifespan_context(app):
+        app.state.procedure_pipeline.rag_service = None
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            await client.post("/api/v1/sessions")
+            session_id = client.cookies.get("icivi_session")
+            state = await app.state.store.get(session_id)
+            state["active_scenario_code"] = "CONSTRUCTION_PERMIT_REQUEST_FORM"
+            state["conversation_context"]["active_form_code"] = "CONSTRUCTION_PERMIT_REQUEST_FORM"
+            state["form_draft"] = {
+                "CONSTRUCTION_PERMIT_REQUEST_FORM": {"owner_name": "Nguyễn Văn A"},
+            }
+            await app.state.store.save(session_id, state)
+
+            response = await client.post(
+                "/api/v1/chat/stream",
+                json={"message": "Không", "language_code": "vi"},
+            )
+
+    payload = _complete_payload(response.text)
+    assert payload["form_code"] == "CONSTRUCTION_PERMIT_REQUEST_FORM"
+    assert payload["ui_action"] is None
+
+
+@pytest.mark.asyncio
+async def test_completed_required_fields_trigger_automatic_review(app) -> None:
+    async with app.router.lifespan_context(app):
+        candidate = app.state.procedure_pipeline.procedure_settings.form_candidates["BIRTH_REGISTRATION_FORM"]
+        complete_values = {field.field_code: "value" for field in candidate.fields if field.required}
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            await client.post("/api/v1/sessions")
+            session_id = client.cookies.get("icivi_session")
+            state = await app.state.store.get(session_id)
+            state["active_scenario_code"] = "BIRTH_REGISTRATION_FORM"
+            state["conversation_context"]["active_form_code"] = "BIRTH_REGISTRATION_FORM"
+            state["form_draft"] = {"BIRTH_REGISTRATION_FORM": complete_values}
+            await app.state.store.save(session_id, state)
+
+            response = await client.post(
+                "/api/v1/chat/stream",
+                json={"message": "Thông tin cuối cùng của tôi là như vậy", "language_code": "vi"},
+            )
+
+    payload = _complete_payload(response.text)
+    assert payload["form_code"] == "BIRTH_REGISTRATION_FORM"
+    assert payload["ui_action"]["type"] == "open_form_review"
+    assert payload["ui_action"]["auto_validate"] is True
+
+
+@pytest.mark.asyncio
+async def test_plain_approval_only_starts_form_when_confirmation_is_pending(app) -> None:
+    async with app.router.lifespan_context(app):
+        base_state = {
+            "messages": [{"role": "user", "content": "Đồng ý điền đơn"}],
+            "conversation_context": {},
+            "active_scenario_code": None,
+            "active_procedure_code": None,
+        }
+        without_pending = await app.state.conversation_agent.ainvoke(base_state)
+        with_pending = await app.state.conversation_agent.ainvoke({
+            **base_state,
+            "conversation_context": {"pending_action": "confirm_form_filling"},
+        })
+
+    assert without_pending.user_action == "none"
+    assert with_pending.user_action == "start_form"
+    assert with_pending.route == "form_flow"
+
+
+@pytest.mark.asyncio
+async def test_residential_building_on_agricultural_land_requires_disambiguation(app) -> None:
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/chat/stream",
+                json={"message": "Tôi muốn xây nhà cấp 3 trên đất nông nghiệp", "language_code": "vi"},
+            )
+            session_id = client.cookies.get("icivi_session")
+            state = await app.state.store.get(session_id)
+
+    payload = _complete_payload(response.text)
+    assert "nhà để ở hay công trình phục vụ sản xuất nông nghiệp" in state["conversation_context"]["pending_question"]
+    assert payload["quick_replies"] == [
+        "Nhà để ở",
+        "Phục vụ sản xuất nông nghiệp",
+        "Mục đích khác/chưa rõ",
+    ]
+    assert state["active_procedure_code"] is None
+    assert state["conversation_context"]["pending_action"] == (
+        "scenario_disambiguation:agricultural_land_residential_conflict"
+    )
+
+
+@pytest.mark.asyncio
+async def test_residential_choice_does_not_select_agricultural_structure_procedures(app) -> None:
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            await client.post(
+                "/api/v1/chat/stream",
+                json={"message": "Tôi muốn xây nhà trên đất nông nghiệp", "language_code": "vi"},
+            )
+            response = await client.post(
+                "/api/v1/chat/stream",
+                json={"message": "Nhà để ở", "language_code": "vi"},
+            )
+            session_id = client.cookies.get("icivi_session")
+            state = await app.state.store.get(session_id)
+
+    assert "đã được chuyển mục đích sử dụng sang đất ở chưa" in state["conversation_context"]["pending_question"]
+    assert not {"1.115242", "1.115243", "1.115244"} & set(state["candidate_codes"])
+    assert "scenario" not in state["conversation_context"]["slots"]
+
+
+@pytest.mark.asyncio
+async def test_explicit_new_agricultural_structure_request_can_advance_to_locality(app) -> None:
+    async with app.router.lifespan_context(app):
+        app.state.procedure_pipeline.rag_service = None
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/chat/stream",
+                json={
+                    "message": "Tôi xin cấp mới công trình phục vụ sản xuất trên đất nông nghiệp",
+                    "language_code": "vi",
+                },
+            )
+
+    payload = _complete_payload(response.text)
+    assert payload["intent"] == "procedure_guidance"
+    assert "Hà Nội" in payload["quick_replies"]
+
+
+@pytest.mark.asyncio
+async def test_debug_trace_logs_each_layer_and_never_logs_api_key(capsys) -> None:
+    class FailingClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args) -> None:
+            return None
+
+        async def post(self, *args, **kwargs):
+            raise httpx.ConnectError("provider unavailable")
+
+    secret = "secret-key-that-must-not-be-logged"
+    traced_app = create_app(
+        Settings(
+            llm_api_key=secret,
+            llm_model="trace-model",
+            llm_debug_logging=True,
+            environment="LOCAL",
+            session_ttl_seconds=1800,
+            database_url=TEST_DATABASE_URL,
+        ),
+        FakeRedis(decode_responses=True),
+    )
+    async with traced_app.router.lifespan_context(traced_app):
+        from app import conversation_agent
+
+        original_client = conversation_agent.httpx.AsyncClient
+        conversation_agent.httpx.AsyncClient = FailingClient
+        try:
+            async with AsyncClient(transport=ASGITransport(app=traced_app), base_url="http://test") as client:
+                await client.post(
+                    "/api/v1/chat/stream",
+                    headers={"x-request-id": "trace-request-1"},
+                    json={"message": "Tôi muốn xây nhà cấp 3 trên đất nông nghiệp", "language_code": "vi"},
+                )
+                await client.delete("/api/v1/sessions/current")
+                await client.post(
+                    "/api/v1/chat/stream",
+                    headers={"x-request-id": "trace-request-2"},
+                    json={
+                        "message": "Tôi xin cấp mới công trình phục vụ sản xuất trên đất nông nghiệp",
+                        "language_code": "vi",
+                    },
+                )
+        finally:
+            conversation_agent.httpx.AsyncClient = original_client
+
+    logs = capsys.readouterr().out
+    for event in (
+        "conversation_input",
+        "conversation_fallback",
+        "conversation_llm_request",
+        "conversation_llm_fallback",
+        "scenario_resolution",
+            "conversation_analysis",
+            "candidate_filter",
+            "procedure_ranking",
+            "routing_decision",
+    ):
+        assert event in logs
+    assert "trace-request-1" in logs
+    assert "Tôi muốn xây" in logs
+    assert "nhà cấp 3 trên đất nông nghiệp" in logs
+    assert "mandatory_disambiguation" in logs
+    assert secret not in logs
+
+
+@pytest.mark.asyncio
+async def test_debug_trace_is_silent_when_flag_is_disabled(app, capsys) -> None:
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            await client.post(
+                "/api/v1/chat/stream",
+                json={"message": "Tôi muốn xây nhà cấp 3 trên đất nông nghiệp", "language_code": "vi"},
+            )
+
+    logs = capsys.readouterr().out
+    assert "conversation_input" not in logs
+    assert "conversation_llm_request" not in logs
+    assert "routing_decision_detail" not in logs

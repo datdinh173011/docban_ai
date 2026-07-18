@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import secrets
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -13,18 +14,19 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 
 from app.config import Settings, get_settings
+from app.conversation_agent import ConversationAgent
 from app.db import create_database_engine
 from app.form_ai_review import ai_review_form, merge_ai_issues
-from app.form_conversation import maybe_fill_form
+from app.form_conversation import maybe_fill_form, resolve_form_code
 from app.form_export import ExportError, ensure_vietnamese_font, render_export
 from app.form_validation import canonical_input_hash, validate_form
 from app.logging_config import configure_logging
-from app.procedure_catalog import load_catalog
+from app.procedure_catalog import load_catalog, normalize_text
 from app.procedure_pipeline import ProcedurePipeline, ReviewRegistry
 from app.procedure_embeddings import ProcedureEmbeddingClient
 from app.procedure_rag import ProcedureRagService
 from app.procedure_settings import get_procedure_settings
-from app.schemas import ChatRequest, FormDraftResponse, FormDraftUpdateRequest, FormExportRequest, FormFieldSchema, FormGroupSchema, FormSchemaResponse, ValidationResult
+from app.schemas import AssistantReply, ChatRequest, FormDraftResponse, FormDraftUpdateRequest, FormExportRequest, FormFieldSchema, FormGroupSchema, FormSchemaResponse, ValidationResult
 from app.session_store import SessionStore
 from app.translation import TranslationError, TranslationService, VIETNAMESE
 
@@ -59,7 +61,9 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
             ReviewRegistry.load(settings.procedure_review_registry_path),
             ProcedureRagService(app.state.database, ProcedureEmbeddingClient(settings), settings.retrieval_limit),
             procedure_settings,
+            settings.llm_debug_logging,
         )
+        app.state.conversation_agent = ConversationAgent(settings, catalog)
         logger.info("procedure_snapshot_loaded procedure_count=%d crawled_at=%s", len(catalog.records), catalog.crawled_at)
         yield
         await app.state.database.dispose()
@@ -119,7 +123,7 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         if len(chat_request.message) > settings.max_message_length:
             raise HTTPException(status_code=422, detail="Message exceeds configured length")
         current_session_id, state, is_new = await ensure_session(session_id)
-        request_id = http_request.headers.get("x-request-id", "local")
+        request_id = http_request.headers.get("x-request-id") or secrets.token_urlsafe(8)
 
         async def events() -> AsyncIterator[str]:
             started = time.perf_counter()
@@ -133,21 +137,201 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     chat_request.message, chat_request.language_code,
                 )
                 messages = [*state.get("messages", []), {"role": "user", "content": canonical_message}]
-                result = await app.state.procedure_pipeline.ainvoke({
-                    "messages": messages,
+                trace_context = {
                     "request_id": request_id,
-                    "language_code": chat_request.language_code,
-                    "active_procedure_code": state.get("active_procedure_code"),
-                    "administrative_area_code": state.get("administrative_area_code"),
-                    "candidate_codes": state.get("candidate_codes", []),
-                    "selection_filters": state.get("selection_filters", {}),
-                    "pending_filter": state.get("pending_filter"),
-                    "locality_required": state.get("locality_required", False),
-                })
-                reply, form_patch = await maybe_fill_form(
-                    {**state, "language_code": VIETNAMESE}, result, settings, app.state.procedure_pipeline.procedure_settings, messages,
+                    "session_hash": session_hash(current_session_id),
+                    "turn_number": (len(state.get("messages", [])) // 2) + 1,
+                }
+                agent_state = {**state, "messages": messages, "request_id": request_id, "trace_context": trace_context}
+                analysis = await app.state.conversation_agent.ainvoke(agent_state)
+                pipeline_messages = [*messages[:-1], {"role": "user", "content": analysis.normalized_query}]
+                context = dict(state.get("conversation_context") or {})
+                context_slots = dict(context.get("slots", {}))
+                context_slot_sources = dict(context.get("slot_sources", {}))
+                for rejected in analysis.rejected_slots:
+                    if rejected.get("reason") in {"choice_cleared_slot", "mandatory_disambiguation"}:
+                        context_slots.pop(rejected.get("slot"), None)
+                        context_slot_sources.pop(rejected.get("slot"), None)
+                context["slots"] = {**context_slots, **analysis.slot_updates}
+                context["slot_sources"] = {
+                    **context_slot_sources,
+                    **analysis.slot_sources,
+                }
+                context["user_goal"] = analysis.normalized_query
+                pipeline_overrides = app.state.conversation_agent.pipeline_overrides(
+                    context["slots"], analysis.explicit_procedure_code, trace_context,
                 )
+                switching_procedure = analysis.user_action == "switch_procedure" or bool(
+                    analysis.explicit_procedure_code
+                    and analysis.explicit_procedure_code != state.get("active_procedure_code")
+                )
+                if switching_procedure:
+                    context.update({
+                        "active_form_code": None,
+                        "form_stage": "not_started",
+                        "pending_action": None,
+                        "pending_form_code": None,
+                        "last_reviewed_input_hash": None,
+                    })
+                form_patch = None
+                ui_action = None
+
+                if analysis.route == "clarify":
+                    reply = AssistantReply(
+                        intent="general",
+                        answer=analysis.clarifying_question or "Bạn vui lòng mô tả rõ hơn nhu cầu cần hỗ trợ.",
+                        quick_replies=analysis.quick_replies,
+                        answer_strategy="low",
+                        confidence_score=analysis.confidence,
+                        confidence_band="low",
+                        confidence_reasons=["conversation_clarification_required"],
+                    )
+                    result = {
+                        "active_procedure_code": None if switching_procedure else state.get("active_procedure_code"),
+                        "candidate_codes": state.get("candidate_codes", []),
+                        "selection_filters": state.get("selection_filters", {}),
+                        "pending_filter": state.get("pending_filter"),
+                        "locality_required": state.get("locality_required", False),
+                        "administrative_area_code": state.get("administrative_area_code"),
+                        "citations": [],
+                    }
+                    context.update({
+                        "pending_question": analysis.clarifying_question,
+                        "pending_options": analysis.quick_replies,
+                        "pending_action": (
+                            f"scenario_disambiguation:{analysis.scenario_rule_id}"
+                            if analysis.scenario_rule_id else None
+                        ),
+                    })
+                elif analysis.route == "form_review":
+                    form_code = state.get("active_scenario_code") or context.get("active_form_code") or context.get("pending_form_code")
+                    result = {
+                        "active_procedure_code": None if switching_procedure else state.get("active_procedure_code"),
+                        "candidate_codes": state.get("candidate_codes", []),
+                        "selection_filters": state.get("selection_filters", {}),
+                        "pending_filter": None,
+                        "locality_required": False,
+                        "administrative_area_code": state.get("administrative_area_code"),
+                        "citations": [],
+                    }
+                    if form_code in app.state.procedure_pipeline.procedure_settings.form_candidates:
+                        reply = AssistantReply(
+                            intent="form_guidance",
+                            answer="Tôi sẽ mở đơn hiện tại và bắt đầu thẩm định, rà soát các thông tin bạn đã cung cấp.",
+                            quick_replies=[],
+                            answer_strategy="high",
+                            confidence_score=analysis.confidence,
+                            confidence_band="high",
+                        )
+                        ui_action = {"type": "open_form_review", "auto_validate": True, "request_id": secrets.token_urlsafe(12)}
+                        context.update({"active_form_code": form_code, "form_stage": "ready_for_review", "pending_action": None})
+                    else:
+                        form_code = None
+                        reply = AssistantReply(
+                            intent="form_guidance",
+                            answer="Tôi chưa xác định được biểu mẫu cần rà soát. Bạn vui lòng cho biết thủ tục hoặc chọn một mẫu đơn.",
+                            quick_replies=[],
+                            answer_strategy="low",
+                            confidence_score=0.2,
+                            confidence_band="low",
+                            confidence_reasons=["active_form_not_identified"],
+                        )
+                else:
+                    result = await app.state.procedure_pipeline.ainvoke({
+                        "messages": pipeline_messages,
+                        "request_id": request_id,
+                        "trace_context": trace_context,
+                        "language_code": chat_request.language_code,
+                        "active_procedure_code": None if switching_procedure else state.get("active_procedure_code"),
+                        "administrative_area_code": pipeline_overrides.get("administrative_area_code", state.get("administrative_area_code")),
+                        "candidate_codes": pipeline_overrides.get("candidate_codes", state.get("candidate_codes", [])),
+                        "selection_filters": pipeline_overrides.get("selection_filters", state.get("selection_filters", {})),
+                        "pending_filter": state.get("pending_filter"),
+                        "locality_required": state.get("locality_required", False),
+                    })
+                    pending_form_code = context.get("pending_form_code")
+                    prospective_form_code = resolve_form_code(
+                        result.get("active_procedure_code"), canonical_message,
+                        app.state.procedure_pipeline.procedure_settings.form_mappings,
+                    )
+                    active_form_code = None if switching_procedure else state.get("active_scenario_code")
+                    declined_form_filling = (
+                        context.get("pending_action") == "confirm_form_filling"
+                        and "chi xem huong dan" in normalize_text(canonical_message)
+                    )
+                    if declined_form_filling:
+                        reply = result["reply"]
+                        context.update({
+                            "pending_action": None,
+                            "pending_form_code": None,
+                            "pending_question": None,
+                            "pending_options": [],
+                        })
+                    elif prospective_form_code and not active_form_code and analysis.user_action != "start_form":
+                        reply = AssistantReply(
+                            intent="form_guidance",
+                            answer="Tôi đã xác định được biểu mẫu phù hợp. Bạn có muốn tôi hỗ trợ điền đơn ngay trong cuộc trò chuyện không?",
+                            quick_replies=["Đồng ý điền đơn", "Chỉ xem hướng dẫn thủ tục"],
+                            answer_strategy="high",
+                            confidence_score=0.9,
+                            confidence_band="high",
+                        )
+                        context.update({
+                            "pending_action": "confirm_form_filling",
+                            "pending_form_code": prospective_form_code,
+                            "pending_question": reply.answer,
+                            "pending_options": reply.quick_replies,
+                        })
+                    else:
+                        effective_state = {**state, "language_code": VIETNAMESE}
+                        if switching_procedure:
+                            effective_state["active_scenario_code"] = None
+                        if analysis.user_action == "start_form" and pending_form_code:
+                            effective_state["active_scenario_code"] = pending_form_code
+                        reply, form_patch = await maybe_fill_form(
+                            effective_state, result, settings, app.state.procedure_pipeline.procedure_settings, messages,
+                        )
+                        if form_patch:
+                            form_code = form_patch["form_code"]
+                            context.update({
+                                "active_form_code": form_code,
+                                "pending_action": None,
+                                "pending_form_code": None,
+                                "form_stage": "ready_for_review" if form_patch["complete"] else "filling",
+                            })
+                            if form_patch["complete"]:
+                                reply.answer = (
+                                    "Tôi đã ghi nhận đủ các trường bắt buộc. Tôi sẽ mở tab Rà soát & Kiểm tra đơn "
+                                    "và bắt đầu thẩm định ngay."
+                                )
+                                ui_action = {"type": "open_form_review", "auto_validate": True, "request_id": secrets.token_urlsafe(12)}
                 canonical_answer = reply.answer
+                logger.info(
+                    "routing_decision request_id=%s session=%s turn=%s route=%s intent=%s confidence=%s candidates=%d",
+                    request_id,
+                    trace_context["session_hash"],
+                    trace_context["turn_number"],
+                    analysis.route,
+                    reply.intent,
+                    reply.confidence_band,
+                    len(result.get("candidate_codes", [])),
+                )
+                if settings.llm_debug_logging:
+                    logger.info(
+                        "routing_decision_detail request_id=%s session=%s turn=%s payload=%s",
+                        request_id,
+                        trace_context["session_hash"],
+                        trace_context["turn_number"],
+                        json.dumps({
+                            "analysis": analysis.model_dump(),
+                            "pipeline_result": {
+                                key: value for key, value in result.items() if key != "reply"
+                            },
+                            "reply": reply.model_dump(),
+                            "context": context,
+                            "ui_action": ui_action,
+                        }, ensure_ascii=False, default=str),
+                    )
                 if needs_translation:
                     reply.answer = await app.state.translation_service.from_vietnamese(reply.answer, chat_request.language_code)
                     reply.quick_replies = [
@@ -157,14 +341,17 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                 for word in reply.answer.split(" "):
                     yield sse("message.delta", {"text": f"{word} "})
                     await asyncio.sleep(0)
-                form_code = form_patch["form_code"] if form_patch else None
+                form_code = form_patch["form_code"] if form_patch else (
+                    context.get("active_form_code") if analysis.route == "form_review" and ui_action else None
+                )
                 new_state = {
                     "messages": [*messages, {"role": "assistant", "content": canonical_answer}][-12:],
                     "language_code": chat_request.language_code,
                     "translation_consent": bool(translation_consent),
                     "intent": reply.intent,
                     "active_procedure_code": result.get("active_procedure_code"),
-                    "active_scenario_code": form_code if form_code else state.get("active_scenario_code"),
+                    "active_scenario_code": form_code if form_code else (None if switching_procedure else state.get("active_scenario_code")),
+                    "conversation_context": context,
                     "candidate_codes": result.get("candidate_codes", []),
                     "selection_filters": result.get("selection_filters", {}),
                     "pending_filter": result.get("pending_filter"),
@@ -188,6 +375,7 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     "external_search_used": reply.external_search_used,
                     "external_search_consent_required": reply.external_search_consent_required,
                     "form_code": form_code,
+                    "ui_action": ui_action,
                     "translation_used": needs_translation,
                 })
             except TranslationError as exc:
@@ -274,7 +462,17 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         if is_new:
             set_session_cookie(http_response, current_session_id)
         merged = {**state.get("form_draft", {}).get(form_code, {}), **payload.fields}
-        new_state = {**state, "form_draft": {**state.get("form_draft", {}), form_code: merged}}
+        conversation_context = dict(state.get("conversation_context") or {})
+        conversation_context.update({
+            "active_form_code": form_code,
+            "form_stage": "filling",
+            "last_reviewed_input_hash": None,
+        })
+        new_state = {
+            **state,
+            "form_draft": {**state.get("form_draft", {}), form_code: merged},
+            "conversation_context": conversation_context,
+        }
         await app.state.store.save(current_session_id, new_state)
         return FormDraftResponse(form_code=form_code, fields=merged, updated_at=new_state.get("updated_at"))
 
@@ -290,7 +488,17 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         base_result = validate_form(candidate, draft)
         ai_issues = await ai_review_form(settings, candidate, draft, base_result.issues)
         result = merge_ai_issues(base_result, ai_issues)
-        new_state = {**state, "last_validation": {**state.get("last_validation", {}), form_code: result.model_dump()}}
+        conversation_context = dict(state.get("conversation_context") or {})
+        conversation_context.update({
+            "active_form_code": form_code,
+            "form_stage": "reviewed",
+            "last_reviewed_input_hash": result.input_hash,
+        })
+        new_state = {
+            **state,
+            "last_validation": {**state.get("last_validation", {}), form_code: result.model_dump()},
+            "conversation_context": conversation_context,
+        }
         await app.state.store.save(current_session_id, new_state)
         return result
 

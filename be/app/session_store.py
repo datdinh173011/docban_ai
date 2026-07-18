@@ -25,6 +25,19 @@ class SessionStore:
             # Repurposed to hold the currently-active form_code once a chat turn
             # resolves into one of the form-fillable procedures (see form_conversation.py).
             "active_scenario_code": None,
+            "conversation_context": {
+                "user_goal": None,
+                "slots": {},
+                "slot_sources": {},
+                "context_summary": None,
+                "pending_question": None,
+                "pending_options": [],
+                "pending_action": None,
+                "pending_form_code": None,
+                "active_form_code": None,
+                "form_stage": "not_started",
+                "last_reviewed_input_hash": None,
+            },
             "candidate_codes": [],
             "selection_filters": {},
             "pending_filter": None,

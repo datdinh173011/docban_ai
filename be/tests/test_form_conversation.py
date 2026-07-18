@@ -1,11 +1,26 @@
 import pytest
 
 from app.config import Settings
-from app.form_conversation import maybe_fill_form, resolve_form_code
+from app.form_conversation import form_required_fields_complete, maybe_fill_form, resolve_form_code
+from app.form_llm import FormFillingReply
 from app.procedure_settings import load_procedure_settings
 from app.schemas import AssistantReply
 
 SETTINGS = load_procedure_settings()
+
+
+def test_form_completion_depends_only_on_required_field_presence() -> None:
+    candidate = SETTINGS.form_candidates["BIRTH_REGISTRATION_FORM"]
+    complete_values = {
+        field.field_code: "value"
+        for field in candidate.fields
+        if field.required
+    }
+    one_missing = dict(complete_values)
+    one_missing.pop(next(field.field_code for field in candidate.fields if field.required))
+
+    assert form_required_fields_complete(candidate, complete_values) is True
+    assert form_required_fields_complete(candidate, one_missing) is False
 
 
 def test_resolve_form_code_by_keyword() -> None:
@@ -90,3 +105,37 @@ async def test_maybe_fill_form_does_not_false_switch_on_generic_residence_answer
     _reply, patch = await maybe_fill_form(state, result, Settings(llm_api_key="", llm_model=""), SETTINGS, messages)
     assert patch is not None
     assert patch["form_code"] == "BIRTH_REGISTRATION_FORM"
+
+
+@pytest.mark.asyncio
+async def test_incomplete_form_cannot_claim_that_all_information_is_complete(monkeypatch) -> None:
+    async def misleading_reply(*args, **kwargs):
+        return FormFillingReply(
+            answer=(
+                "Dạ vâng, mình đã ghi nhận đầy đủ các thông tin bạn cung cấp. "
+                "Bạn nhớ bổ sung số định danh sau nhé."
+            ),
+            quick_replies=[],
+            extracted_fields={},
+        )
+
+    monkeypatch.setattr("app.form_conversation.fill_form", misleading_reply)
+    state = {
+        "active_scenario_code": "CONSTRUCTION_PERMIT_REQUEST_FORM",
+        "form_draft": {"CONSTRUCTION_PERMIT_REQUEST_FORM": {"owner_name": "Nguyễn Văn A"}},
+        "language_code": "vi",
+    }
+    result = {"reply": AssistantReply(intent="general", answer="ok"), "active_procedure_code": None}
+
+    reply, patch = await maybe_fill_form(
+        state,
+        result,
+        Settings(llm_api_key="test", llm_model="test"),
+        SETTINGS,
+        [{"role": "user", "content": "Không"}],
+    )
+
+    assert patch is not None
+    assert patch["complete"] is False
+    assert "vẫn còn thiếu trường bắt buộc" in reply.answer
+    assert "Kết thúc và rà soát" in reply.quick_replies

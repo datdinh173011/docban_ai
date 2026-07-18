@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,9 @@ from app.rag_types import Citation, RetrievedChunk
 from app.schemas import AssistantReply
 from app.procedure_rag import ProcedureRagService
 from app.procedure_settings import ProcedureSettings, get_procedure_settings
+
+logger = logging.getLogger(__name__)
+
 SECTION_LABELS = {
     "condition": "Điều kiện/yêu cầu",
     "required_document": "Thành phần hồ sơ",
@@ -93,12 +97,27 @@ class ProcedurePipeline:
         reviews: ReviewRegistry | None = None,
         rag_service: ProcedureRagService | None = None,
         procedure_settings: ProcedureSettings | None = None,
+        debug_logging: bool = False,
     ) -> None:
         self.catalog = catalog
         self.limit = limit
         self.reviews = reviews or ReviewRegistry()
         self.rag_service = rag_service
         self.procedure_settings = procedure_settings or get_procedure_settings()
+        self.debug_logging = debug_logging
+
+    def _trace(self, event: str, state: dict[str, Any], **payload: Any) -> None:
+        if not self.debug_logging:
+            return
+        trace = state.get("trace_context") or {}
+        logger.info(
+            "%s request_id=%s session=%s turn=%s payload=%s",
+            event,
+            trace.get("request_id", state.get("request_id", "unknown")),
+            trace.get("session_hash", "unknown"),
+            trace.get("turn_number", "unknown"),
+            json.dumps(payload, ensure_ascii=False, default=str),
+        )
 
     async def ainvoke(self, state: dict[str, Any]) -> dict[str, Any]:
         result = self.respond(state)
@@ -128,7 +147,8 @@ class ProcedurePipeline:
             state = {**state, "administrative_area_code": message}
         selected = self._selected_record(state)
         if selected is None:
-            candidates, filters = self._resolve_candidates(message, state)
+            candidates, filters, trace_metadata = self._resolve_candidates(message, state)
+            state = {**state, "_pipeline_trace": trace_metadata}
             if len(candidates) == 1:
                 selected = candidates[0]
             else:
@@ -136,20 +156,27 @@ class ProcedurePipeline:
 
         locality = state.get("administrative_area_code")
         if selected.is_local and not locality:
+            self._trace("routing_decision", state, route="locality", procedure_code=selected.code, reason="locality_required")
             return self._ask_locality(selected, state)
         if selected.is_local and not self._locality_matches(selected, locality):
+            self._trace("routing_decision", state, route="locality_mismatch", procedure_code=selected.code, locality=locality)
             return self._locality_mismatch(selected, locality, state)
+        self._trace("routing_decision", state, route="answer", procedure_code=selected.code, locality=locality)
         return self._answer(selected, message, state)
 
     def _selected_record(self, state: dict[str, Any]) -> ProcedureRecord | None:
         code = state.get("active_procedure_code")
         return self.catalog.by_code.get(code) if code else None
 
-    def _resolve_candidates(self, message: str, state: dict[str, Any]) -> tuple[list[ProcedureRecord], dict[str, str]]:
+    def _resolve_candidates(
+        self, message: str, state: dict[str, Any],
+    ) -> tuple[list[ProcedureRecord], dict[str, str], dict[str, Any]]:
         records = self.catalog.records
+        steps: list[dict[str, Any]] = [{"step": "initial", "count": len(records)}]
         saved_codes = state.get("candidate_codes") or []
         if saved_codes:
             records = [self.catalog.by_code[code] for code in saved_codes if code in self.catalog.by_code]
+            steps.append({"step": "saved_candidates", "count": len(records), "codes": saved_codes})
         filters = dict(state.get("selection_filters") or {})
         pending_filter = state.get("pending_filter")
         if pending_filter:
@@ -162,9 +189,12 @@ class ProcedurePipeline:
             if choice:
                 filters[pending_filter] = choice
                 records = [record for record in records if getattr(record, pending_filter) == choice]
+                steps.append({"step": pending_filter, "value": choice, "source": "pending_answer", "count": len(records)})
         exact_code = next((record for record in self.catalog.records if record.code in message), None)
         if exact_code:
-            return [exact_code], filters
+            metadata = {"steps": steps, "selected": exact_code.code, "reason": "explicit_code"}
+            self._trace("candidate_filter", state, **metadata)
+            return [exact_code], filters, metadata
         for selection_filter in self.procedure_settings.selection_filters:
             attribute = selection_filter.attribute
             values = {getattr(record, attribute) for record in records}
@@ -172,6 +202,7 @@ class ProcedurePipeline:
             if choice:
                 filters[attribute] = choice
                 records = [record for record in records if getattr(record, attribute) == choice]
+                steps.append({"step": attribute, "value": choice, "source": "message_match", "count": len(records)})
         for attribute, value in filters.items():
             records = [record for record in records if getattr(record, attribute) == value]
         query_tokens = tokens(message)
@@ -180,9 +211,29 @@ class ProcedurePipeline:
             key=lambda item: item[0],
             reverse=True,
         )
-        if ranked and ranked[0][0] >= 0.72 and (len(ranked) == 1 or ranked[0][0] - ranked[1][0] >= 0.20):
-            return [ranked[0][1]], filters
-        return records, filters
+        top = [
+            {"code": record.code, "score": round(score, 4), "name": record.name}
+            for score, record in ranked[:5]
+        ]
+        gap = round(ranked[0][0] - ranked[1][0], 4) if len(ranked) > 1 else None
+        auto_selected = bool(ranked and ranked[0][0] >= 0.72 and (len(ranked) == 1 or ranked[0][0] - ranked[1][0] >= 0.20))
+        metadata = {
+            "steps": steps,
+            "filters": filters,
+            "final_count": len(records),
+            "candidate_codes": [record.code for record in records],
+            "top_ranked": top,
+            "top_gap": gap,
+            "auto_selected": auto_selected,
+        }
+        self._trace("candidate_filter", state, steps=steps, filters=filters, final_count=len(records), candidate_codes=metadata["candidate_codes"])
+        self._trace("procedure_ranking", state, top_ranked=top, top_gap=gap, auto_selected=auto_selected)
+        if auto_selected:
+            metadata["selected"] = ranked[0][1].code
+            metadata["reason"] = "score_threshold"
+            return [ranked[0][1]], filters, metadata
+        metadata["reason"] = "clarification_required"
+        return records, filters, metadata
 
     @staticmethod
     def _procedure_score(record: ProcedureRecord, query_tokens: set[str]) -> float:
@@ -378,5 +429,6 @@ class ProcedurePipeline:
             "pending_filter": updates.get("pending_filter"),
             "locality_required": updates.get("locality_required", False),
             "administrative_area_code": updates.get("administrative_area_code", state.get("administrative_area_code")),
+            "trace_metadata": state.get("_pipeline_trace", {}),
         }
         return PipelineResult(reply, [chunk.citation.to_dict() for chunk in chunks], next_state)

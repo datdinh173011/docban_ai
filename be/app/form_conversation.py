@@ -12,7 +12,7 @@ from typing import Any
 from app.config import Settings
 from app.form_llm import fill_form
 from app.procedure_catalog import normalize_text
-from app.procedure_settings import FormMapping, ProcedureSettings
+from app.procedure_settings import FormCandidate, FormMapping, ProcedureSettings
 from app.schemas import AssistantReply
 
 
@@ -26,6 +26,30 @@ def resolve_form_code(active_procedure_code: str | None, message: str, mappings:
         if any(normalize_text(keyword) in normalized_message for keyword in mapping.match_keywords):
             return mapping.form_code
     return None
+
+
+def form_required_fields_complete(candidate: FormCandidate, values: dict[str, Any]) -> bool:
+    """Completion is deterministic: every required field must have a non-empty value."""
+    return all(not field.required or bool(str(values.get(field.field_code, "")).strip()) for field in candidate.fields)
+
+
+def _reconcile_incomplete_reply(candidate: FormCandidate, values: dict[str, Any], reply: AssistantReply) -> AssistantReply:
+    missing = [
+        field for field in candidate.fields
+        if field.required and not str(values.get(field.field_code, "")).strip()
+    ]
+    normalized_answer = normalize_text(reply.answer)
+    completion_claims = ("ghi nhan day du", "da day du", "da hoan tat", "hoan thanh bieu mau")
+    if not missing or not any(claim in normalized_answer for claim in completion_claims):
+        return reply
+    return AssistantReply(
+        intent="form_guidance",
+        answer=(
+            f"Đơn vẫn còn thiếu trường bắt buộc: {missing[0].label_vi.lower()}. "
+            "Bạn có thể tiếp tục cung cấp thông tin hoặc chọn “Kết thúc và rà soát”."
+        ),
+        quick_replies=["Tiếp tục điền", "Kết thúc và rà soát"],
+    )
 
 
 async def maybe_fill_form(
@@ -62,4 +86,9 @@ async def maybe_fill_form(
     }
     merged_fields = {**known_fields, **newly_extracted}
     new_reply = AssistantReply(intent="form_guidance", answer=form_reply.answer, quick_replies=form_reply.quick_replies)
-    return new_reply, {"form_code": form_code, "fields": merged_fields}
+    new_reply = _reconcile_incomplete_reply(candidate, merged_fields, new_reply)
+    return new_reply, {
+        "form_code": form_code,
+        "fields": merged_fields,
+        "complete": form_required_fields_complete(candidate, merged_fields),
+    }

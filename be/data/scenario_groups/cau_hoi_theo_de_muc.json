@@ -21,7 +21,41 @@
     "Đề mục": "Nông nghiệp, thủy lợi & thiên tai",
     "Câu hỏi nhánh": "Bạn cần giải quyết nhóm việc nào?",
     "Lựa chọn gợi ý cho người dùng": "Công trình trên đất nông nghiệp\nHỗ trợ nhà màng/nhà lưới\nCơ sở chế biến/sơ chế/bảo quản/trang trại\nGiấy phép thủy lợi\nĐê điều/phòng chống thiên tai\nKinh tế hợp tác/phát triển nông thôn",
-    "Câu hỏi tiếp theo": "Nếu là giấy phép: hỏi cấp mới/cấp lại/gia hạn/điều chỉnh. Nếu là hỗ trợ: hỏi loại cơ sở và địa phương."
+    "Câu hỏi tiếp theo": "Nếu là giấy phép: hỏi cấp mới/cấp lại/gia hạn/điều chỉnh. Nếu là hỗ trợ: hỏi loại cơ sở và địa phương.",
+    "Quy tắc phân biệt": [
+      {
+        "Mã": "agricultural_land_residential_conflict",
+        "Tất cả nhóm từ khóa": [
+          ["nhà", "nhà ở"],
+          ["đất nông nghiệp"]
+        ],
+        "Câu hỏi": "Công trình bạn dự kiến xây là nhà để ở hay công trình phục vụ sản xuất nông nghiệp?",
+        "Lựa chọn": [
+          "Nhà để ở",
+          "Phục vụ sản xuất nông nghiệp",
+          "Mục đích khác/chưa rõ"
+        ],
+        "Xử lý lựa chọn": {
+          "Nhà để ở": {
+            "Xóa slot": ["scenario"],
+            "Câu hỏi tiếp theo": "Đất này đã được chuyển mục đích sử dụng sang đất ở chưa?",
+            "Lựa chọn tiếp theo": ["Đã chuyển sang đất ở", "Chưa chuyển", "Chưa rõ"]
+          },
+          "Phục vụ sản xuất nông nghiệp": {
+            "Gán slot": {
+              "group": "Nông nghiệp, thủy lợi & thiên tai",
+              "field": "Nông nghiệp",
+              "scenario": "Công trình trên đất nông nghiệp"
+            }
+          },
+          "Mục đích khác/chưa rõ": {
+            "Xóa slot": ["scenario"],
+            "Câu hỏi tiếp theo": "Bạn có thể mô tả rõ công trình dự kiến dùng vào mục đích gì?",
+            "Lựa chọn tiếp theo": []
+          }
+        }
+      }
+    ]
   },
   {
     "Đề mục": "Du lịch, văn hóa & sáng tạo",
