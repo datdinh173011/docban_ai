@@ -15,7 +15,9 @@ dependencies = [
   "pydantic-settings>=2.6,<3",
   "redis>=5.2,<6",
   "rich>=13.9,<15",
+  "sentence-transformers>=3.0,<6",
   "sqlalchemy>=2.0,<3",
+  "torch>=2.0,<3",
   "uvicorn[standard]>=0.32,<1",
 ]
 
@@ -25,6 +27,14 @@ dev = [
   "pytest>=8.3,<9",
   "pytest-asyncio>=0.24,<1",
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

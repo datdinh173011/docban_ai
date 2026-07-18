@@ -8,18 +8,18 @@ from contextlib import asynccontextmanager
 
 from fastapi import Cookie, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from redis.asyncio import Redis
+from sqlalchemy import text
 
 from app.config import Settings, get_settings
 from app.db import create_database_engine
-from app.embeddings import EmbeddingClient
-from app.external_search import DisabledExternalSearchAdapter
-from app.graph import build_graph
-from app.llm import OpenAICompatibleClient
-from app.rag import RagService
-from app.structured_query import StructuredQueryService
 from app.logging_config import configure_logging
+from app.procedure_catalog import load_catalog
+from app.procedure_pipeline import ProcedurePipeline, ReviewRegistry
+from app.procedure_embeddings import ProcedureEmbeddingClient
+from app.procedure_rag import ProcedureRagService
+from app.procedure_settings import get_procedure_settings
 from app.schemas import ChatRequest
 from app.session_store import SessionStore
 
@@ -43,14 +43,16 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         app.state.redis = redis_client or Redis.from_url(settings.redis_url, decode_responses=True)
         app.state.store = SessionStore(app.state.redis, settings.session_ttl_seconds)
         app.state.database = create_database_engine(settings)
-        app.state.graph = build_graph(
-            OpenAICompatibleClient(settings),
-            RagService(app.state.database, EmbeddingClient(settings), settings.retrieval_limit),
-            StructuredQueryService(app.state.database),
-            DisabledExternalSearchAdapter(),
-            settings.external_search_enabled,
-            settings.llm_debug_logging,
+        procedure_settings = get_procedure_settings()
+        catalog = load_catalog(str(settings.procedure_snapshot_dir), str(settings.procedure_catalog_path) if settings.procedure_catalog_path else None)
+        app.state.procedure_pipeline = ProcedurePipeline(
+            catalog,
+            settings.retrieval_limit,
+            ReviewRegistry.load(settings.procedure_review_registry_path),
+            ProcedureRagService(app.state.database, ProcedureEmbeddingClient(settings), settings.retrieval_limit),
+            procedure_settings,
         )
+        logger.info("procedure_snapshot_loaded procedure_count=%d crawled_at=%s", len(catalog.records), catalog.crawled_at)
         yield
         await app.state.database.dispose()
         if redis_client is None:
@@ -115,20 +117,16 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
             started = time.perf_counter()
             try:
                 messages = [*state.get("messages", []), {"role": "user", "content": chat_request.message}]
-                external_search_consent = state.get("external_search_consent", False)
-                if chat_request.external_search_consent is not None:
-                    external_search_consent = chat_request.external_search_consent
-                result = await app.state.graph.ainvoke({
+                result = await app.state.procedure_pipeline.ainvoke({
                     "messages": messages,
                     "request_id": request_id,
                     "language_code": chat_request.language_code,
-                    "intent": state.get("intent", "general"),
                     "active_procedure_code": state.get("active_procedure_code"),
-                    "active_scenario_code": state.get("active_scenario_code"),
-                    "external_search_consent": external_search_consent,
                     "administrative_area_code": state.get("administrative_area_code"),
-                    "retrieved_chunks": [],
-                    "citations": [],
+                    "candidate_codes": state.get("candidate_codes", []),
+                    "selection_filters": state.get("selection_filters", {}),
+                    "pending_filter": state.get("pending_filter"),
+                    "locality_required": state.get("locality_required", False),
                 })
                 reply = result["reply"]
                 for word in reply.answer.split(" "):
@@ -139,8 +137,11 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     "language_code": chat_request.language_code,
                     "intent": reply.intent,
                     "active_procedure_code": result.get("active_procedure_code"),
-                    "active_scenario_code": result.get("active_scenario_code"),
-                    "external_search_consent": external_search_consent,
+                    "candidate_codes": result.get("candidate_codes", []),
+                    "selection_filters": result.get("selection_filters", {}),
+                    "pending_filter": result.get("pending_filter"),
+                    "locality_required": result.get("locality_required", False),
+                    "administrative_area_code": result.get("administrative_area_code"),
                 }
                 await app.state.store.save(current_session_id, new_state)
                 yield sse("message.complete", {
@@ -167,6 +168,22 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         if is_new:
             set_session_cookie(stream_response, current_session_id)
         return stream_response
+
+    @app.get("/api/v1/sources/{procedure_code}")
+    async def source_pdf(procedure_code: str) -> FileResponse:
+        """Serve only a published procedure PDF selected by its catalog code."""
+        async with app.state.database.connect() as connection:
+            pdf_path = await connection.scalar(text("""
+                SELECT pc.pdf_path FROM procedure_catalog pc JOIN procedure_snapshot ps ON ps.id = pc.snapshot_id
+                WHERE pc.procedure_code = :code AND ps.status = 'published' ORDER BY ps.crawled_at DESC LIMIT 1
+            """), {"code": procedure_code})
+        if not pdf_path:
+            raise HTTPException(status_code=404, detail="Published source not found")
+        root = settings.procedure_snapshot_dir.resolve()
+        target = (root / pdf_path).resolve()
+        if root not in target.parents or not target.is_file():
+            raise HTTPException(status_code=404, detail="Source file not found")
+        return FileResponse(target, media_type="application/pdf", filename=target.name)
 
     return app
 

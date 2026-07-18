@@ -3,6 +3,9 @@ services:
     build:
       context: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      KNOWLEDGE_DATA_DIR: /app/runtime_data
+      PROCEDURE_SETTINGS_DIR: ${PROCEDURE_SETTINGS_DIR:-/app/app/settings}
     env_file:
       - path: ./.env
         required: false
@@ -15,7 +18,7 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
-      - knowledge_data:/app/data
+      - knowledge_data:/app/runtime_data
       - ../docs/form_data:/sources/forms:ro
       - ./data/registry:/templates/registry:ro
       - ./data/packages:/templates/packages:ro

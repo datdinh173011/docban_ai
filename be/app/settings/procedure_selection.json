@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "max_quick_replies": 7,
+  "filters": [
+    {
+      "attribute": "group",
+      "label": "Nhóm nhu cầu",
+      "question": "Bạn đang cần giải quyết vấn đề thuộc nhóm nào?"
+    },
+    {
+      "attribute": "field",
+      "label": "Lĩnh vực",
+      "question": "Trong nhóm này, nhu cầu của bạn thuộc lĩnh vực cụ thể nào?"
+    },
+    {
+      "attribute": "request_type",
+      "label": "Loại yêu cầu",
+      "question": "Bạn muốn thực hiện loại yêu cầu nào?"
+    },
+    {
+      "attribute": "scenario",
+      "label": "Tình huống",
+      "question": "Trường hợp cụ thể của bạn thuộc tình huống nào?"
+    },
+    {
+      "attribute": "audience",
+      "label": "Đối tượng nộp hồ sơ",
+      "question": "Đối tượng nộp hồ sơ là ai?"
+    }
+  ],
+  "locality": {
+    "label": "Địa bàn",
+    "question": "Bạn thực hiện thủ tục này tại tỉnh/thành nào?"
+  }
+}

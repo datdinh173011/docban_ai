@@ -22,7 +22,11 @@ class SessionStore:
             "intent": "general",
             "active_procedure_code": None,
             "active_scenario_code": None,
-            "external_search_consent": False,
+            "candidate_codes": [],
+            "selection_filters": {},
+            "pending_filter": None,
+            "locality_required": False,
+            "administrative_area_code": None,
         }
         await self.redis.set(self.key(session_id), json.dumps(state), ex=self.ttl_seconds)
         return session_id

@@ -22,12 +22,16 @@ class CitationPayload(BaseModel):
     administrative_area_code: str | None = None
     quote_preview: str
     source_type: str = "government"
+    source_status: str = "reviewed"
+    crawled_at: str | None = None
+    procedure_code: str | None = None
+    snapshot_path: str | None = None
 
 
 class AssistantReply(BaseModel):
     intent: Literal["procedure_guidance", "form_guidance", "general", "out_of_scope"]
     answer: str = Field(min_length=1, max_length=4000)
-    quick_replies: list[str] = Field(default_factory=list, max_length=3)
+    quick_replies: list[str] = Field(default_factory=list, max_length=7)
     answer_strategy: Literal["high", "medium", "low", "unable_to_verify", "consent_required"] = "unable_to_verify"
     confidence_score: float | None = Field(default=None, ge=0, le=1)
     confidence_band: Literal["high", "medium", "low"] | None = None
