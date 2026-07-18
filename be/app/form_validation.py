@@ -100,28 +100,34 @@ def _check_cross_field_rule(rule: CrossFieldRule, values: dict) -> ValidationIss
     return None
 
 
-def _summarize(issues: list[ValidationIssue]) -> ValidationSummary:
+def summarize_issues(issues: list[ValidationIssue]) -> ValidationSummary:
     summary = ValidationSummary()
     for issue in issues:
         setattr(summary, issue.severity, getattr(summary, issue.severity) + 1)
     return summary
 
 
+def status_from_summary(summary: ValidationSummary) -> str:
+    """Shared status rollup, reused by `validate_form` and by the AI-issue merge
+    step in `app.form_ai_review` so both paths roll up the same way."""
+    if summary.blocking_error:
+        return "invalid"
+    if summary.warning:
+        return "valid_with_warnings"
+    if summary.unable_to_verify:
+        return "unable_to_validate"
+    return "valid"
+
+
 def validate_form(candidate: FormCandidate, values: dict) -> ValidationResult:
     issues = [issue for field in candidate.fields if (issue := _check_field(field, values.get(field.field_code))) is not None]
     issues += [issue for rule in candidate.cross_field_rules if (issue := _check_cross_field_rule(rule, values)) is not None]
-    summary = _summarize(issues)
-    if summary.blocking_error:
-        status = "invalid"
-    elif summary.warning:
-        status = "valid_with_warnings"
-    else:
-        status = "valid"
+    summary = summarize_issues(issues)
     return ValidationResult(
         validation_id=str(uuid4()),
         form_code=candidate.form_code,
         input_hash=canonical_input_hash(values),
-        status=status,
+        status=status_from_summary(summary),
         summary=summary,
         issues=issues,
         validated_at=datetime.now(UTC).isoformat(),

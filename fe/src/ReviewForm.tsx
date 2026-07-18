@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FormSchemaResponse,
   ApiError,
@@ -58,36 +58,93 @@ function FormPicker({ locale, onPick }: { locale: Locale; onPick: (formCode: str
   );
 }
 
-function ResultPanel({ locale, validation, dirty, onExport, exporting }: { locale: Locale; validation: ValidationResult | null; dirty: boolean; onExport: () => void; exporting: boolean }) {
+function stampLabel(text: Record<string, string>, status: ValidationResult["status"]): string {
+  if (status === "valid") return text.stampValid;
+  if (status === "valid_with_warnings") return text.stampValidWarnings;
+  if (status === "invalid") return text.stampInvalid;
+  return text.stampUnableToValidate;
+}
+
+function ResultPanel({
+  locale,
+  validation,
+  dirty,
+  validating,
+  onExport,
+  exporting,
+  onPreview,
+  previewing,
+}: {
+  locale: Locale;
+  validation: ValidationResult | null;
+  dirty: boolean;
+  validating: boolean;
+  onExport: () => void;
+  exporting: boolean;
+  onPreview: () => void;
+  previewing: boolean;
+}) {
   const text = copy[locale];
-  if (!validation) {
-    return (
-      <aside className="review-result-panel">
-        <p className="result-placeholder">{text.reviewHint} <strong>{text.validate}</strong> {text.reviewHintEnd}</p>
-      </aside>
-    );
-  }
-  const canExport = validation.summary.blocking_error === 0 && !dirty;
+  const canExport = !!validation && validation.summary.blocking_error === 0 && !dirty;
+
   return (
     <aside className="review-result-panel">
       <p className="result-title">{text.reviewResult}</p>
-      <div className={`result-stamp ${validation.status}`}>{text[validation.status]}</div>
-      <ul className="result-summary">
-        <li className="blocking_error">{text.blocking}: {validation.summary.blocking_error}</li>
-        <li className="warning">{text.warning}: {validation.summary.warning}</li>
-        <li className="suggestion">{text.suggestion}: {validation.summary.suggestion}</li>
-      </ul>
-      {validation.issues.length > 0 && (
-        <ol className="result-issues">
-          {validation.issues.map((issue) => (
-            <li key={`${issue.field_code}-${issue.issue_code}`} className={issue.severity}>{issue.message_vi}</li>
-          ))}
-        </ol>
+      {validating ? (
+        <div className="result-loading">
+          <span className="spinner" aria-hidden="true" />
+          <p className="result-loading-hint">{text.validatingHint}</p>
+        </div>
+      ) : !validation ? (
+        <div className="result-idle">
+          <span className="result-icon" aria-hidden="true">📄</span>
+          <p className="result-placeholder">{text.reviewHint} <strong>{text.validate}</strong> {text.reviewHintEnd}</p>
+        </div>
+      ) : (
+        <div className="result-verdict">
+          <div key={validation.validation_id} className={`verdict-stamp ${validation.status}`}>
+            <span className="verdict-stamp-word">{stampLabel(text, validation.status)}</span>
+          </div>
+          <h3 className={`result-heading ${validation.status}`}>{text[validation.status]}</h3>
+          <ul className="result-summary">
+            <li className="blocking_error">{text.blocking}: {validation.summary.blocking_error}</li>
+            <li className="warning">{text.warning}: {validation.summary.warning}</li>
+            <li className="suggestion">{text.suggestion}: {validation.summary.suggestion}</li>
+            {validation.summary.unable_to_verify > 0 && <li className="unable_to_verify">{text.unableToVerify}: {validation.summary.unable_to_verify}</li>}
+          </ul>
+          {validation.issues.length > 0 && (
+            <ol className="result-issues">
+              {validation.issues.map((issue) => (
+                <li key={`${issue.field_code}-${issue.issue_code}`} className={issue.severity}>{issue.message_vi}</li>
+              ))}
+            </ol>
+          )}
+          {dirty && <p className="result-stale">{text.stale}</p>}
+        </div>
       )}
-      {dirty && validation && <p className="result-stale">{text.stale}</p>}
-      <button className="export-button" disabled={!canExport || exporting} onClick={onExport}>
-        {exporting ? text.exporting : text.export}
-      </button>
+      {canExport && (
+        <div className="export-card">
+          <div className="export-card-header">
+            <span className="export-card-icon" aria-hidden="true">
+              <span className="export-card-icon-line" />
+              <span className="export-card-icon-line short" />
+              <em>PDF</em>
+            </span>
+            <div className="export-card-copy">
+              <h4>{text.exportCardTitle}</h4>
+              <p>{text.exportCardBody}</p>
+            </div>
+          </div>
+          <div className="export-card-actions">
+            <button className="export-button" disabled={exporting} onClick={onExport} type="button">
+              {exporting ? text.exporting : text.export}
+            </button>
+            <button className="preview-button" disabled={previewing} onClick={onPreview} type="button">
+              👁 {previewing ? text.exporting : text.previewButton}
+            </button>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
@@ -101,8 +158,17 @@ export function ReviewForm({ activeFormCode, locale, onFormCodeConsumed }: { act
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const text = copy[locale];
+  const previewUrl = useMemo(() => (previewBlob ? URL.createObjectURL(previewBlob) : null), [previewBlob]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   useEffect(() => {
     if (activeFormCode) {
@@ -121,6 +187,7 @@ export function ReviewForm({ activeFormCode, locale, onFormCodeConsumed }: { act
         setValues(draftResponse.fields as Record<string, string>);
         setValidation(null);
         setDirty(false);
+        setPreviewBlob(null);
       })
       .catch(() => setError(text.formLoadError))
       .finally(() => setLoading(false));
@@ -151,6 +218,7 @@ export function ReviewForm({ activeFormCode, locale, onFormCodeConsumed }: { act
     if (!formCode) return;
     setValidating(true);
     setError(null);
+    setPreviewBlob(null);
     try {
       setValidation(await validateForm(formCode));
       setDirty(false);
@@ -172,6 +240,28 @@ export function ReviewForm({ activeFormCode, locale, onFormCodeConsumed }: { act
     } finally {
       setExporting(false);
     }
+  }
+
+  async function runPreview() {
+    if (!formCode || !validation) return;
+    setPreviewing(true);
+    setError(null);
+    try {
+      setPreviewBlob(await exportFormPdf(formCode, validation.validation_id));
+    } catch (error) {
+      setError(exportErrorMessage(error, text.previewError));
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  function closePreview() {
+    setPreviewBlob(null);
+  }
+
+  function downloadPreview() {
+    if (!formCode || !previewBlob) return;
+    downloadBlob(previewBlob, `${formCode.toLowerCase()}.pdf`);
   }
 
   if (!formCode) return <FormPicker locale={locale} onPick={setFormCode} />;
@@ -235,7 +325,36 @@ export function ReviewForm({ activeFormCode, locale, onFormCodeConsumed }: { act
           </section>
         ))}
       </div>
-      <ResultPanel locale={locale} validation={validation} dirty={dirty} onExport={() => void runExport()} exporting={exporting} />
+      <ResultPanel
+        locale={locale}
+        validation={validation}
+        dirty={dirty}
+        validating={validating}
+        onExport={() => void runExport()}
+        exporting={exporting}
+        onPreview={() => void runPreview()}
+        previewing={previewing}
+      />
+      {previewUrl && (
+        <div className="pdf-preview-backdrop" role="presentation" onClick={closePreview}>
+          <section
+            aria-labelledby="pdf-preview-title"
+            aria-modal="true"
+            className="pdf-preview-dialog"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <header className="pdf-preview-header">
+              <h2 id="pdf-preview-title">{text.previewTitle}</h2>
+              <div className="pdf-preview-actions">
+                <button onClick={downloadPreview} type="button">⬇ {text.downloadInPreview}</button>
+                <button aria-label={text.close} className="pdf-preview-close" onClick={closePreview} type="button">✕</button>
+              </div>
+            </header>
+            <iframe className="pdf-preview-frame" src={previewUrl} title={text.previewTitle} />
+          </section>
+        </div>
+      )}
     </div>
   );
 }
