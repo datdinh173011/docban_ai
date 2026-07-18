@@ -19,10 +19,19 @@ class SessionStore:
         state = {
             "messages": [],
             "language_code": "vi",
+            "translation_consent": False,
             "intent": "general",
             "active_procedure_code": None,
+            # Repurposed to hold the currently-active form_code once a chat turn
+            # resolves into one of the form-fillable procedures (see form_conversation.py).
             "active_scenario_code": None,
-            "external_search_consent": False,
+            "candidate_codes": [],
+            "selection_filters": {},
+            "pending_filter": None,
+            "locality_required": False,
+            "administrative_area_code": None,
+            "form_draft": {},
+            "last_validation": {},
         }
         await self.redis.set(self.key(session_id), json.dumps(state), ex=self.ttl_seconds)
         return session_id

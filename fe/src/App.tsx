@@ -1,5 +1,7 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Citation, bootstrapSession, deleteSession, streamChat } from "./api";
+import { copy, languages, Locale, suggestions } from "./i18n";
+import { ReviewForm } from "./ReviewForm";
 
 type Message = {
   id: string;
@@ -11,44 +13,43 @@ type Message = {
   answerStrategy?: string;
   externalSearchConsentRequired?: boolean;
 };
-type Language = { code: string; label: string };
-
-const languages: Language[] = [
-  { code: "vi", label: "Tiếng Việt" },
-  { code: "en", label: "English" },
-  { code: "hmn", label: "Tiếng H'Mông" },
-  { code: "km", label: "Tiếng Khmer" },
-];
-
-const suggestions = [
-  "Tôi muốn đăng ký khai sinh cho bé",
-  "Tôi muốn xin giấy phép xây dựng nhà",
-  "Tôi muốn đăng ký thường trú",
-];
-
 const id = () => crypto.randomUUID();
 
 export function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [language, setLanguage] = useState(languages[0]);
+  const [language, setLanguage] = useState(() => {
+    const saved = localStorage.getItem("icivi_locale") as Locale | null;
+    return languages.find((item) => item.code === saved) ?? languages[0];
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [reviewTab, setReviewTab] = useState(false);
+  const [activeFormCode, setActiveFormCode] = useState<string | null>(null);
+  const [formCodePending, setFormCodePending] = useState(false);
   const [externalSearchConsent, setExternalSearchConsent] = useState<boolean | null>(null);
+  const [translationConsent, setTranslationConsent] = useState<boolean | null>(null);
+  const [pendingTranslation, setPendingTranslation] = useState<string | null>(null);
+  const [translationProvider, setTranslationProvider] = useState("AI");
+  const [notice, setNotice] = useState<string | null>(null);
   const [pendingExternalSearchMessage, setPendingExternalSearchMessage] = useState<string | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
   const isChatting = messages.length > 0;
+  const text = copy[language.code];
 
   useEffect(() => {
-    void bootstrapSession().catch(() => undefined);
+    void bootstrapSession().catch(() => setNotice(text.connectionError));
   }, []);
 
   useEffect(() => {
     const stream = streamRef.current;
     if (stream) stream.scrollTop = stream.scrollHeight;
   }, [messages, streaming]);
+
+  useEffect(() => {
+    localStorage.setItem("icivi_locale", language.code);
+  }, [language.code]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -69,9 +70,26 @@ export function App() {
     };
   }, [menuOpen]);
 
-  async function send(text = input) {
-    const message = text.trim();
+  async function requestTranslationConsent(message: string) {
+    try {
+      await streamChat(message, language.code, null, externalSearchConsent, (event) => {
+        if (event.type === "translation.consent_required") {
+          setTranslationProvider(event.provider);
+          setPendingTranslation(message);
+        }
+      });
+    } catch {
+      setNotice(text.connectionError);
+    }
+  }
+
+  async function send(textToSend = input, confirmedTranslationConsent = translationConsent) {
+    const message = textToSend.trim();
     if (!message || streaming) return;
+    if (language.code !== "vi" && confirmedTranslationConsent !== true) {
+      await requestTranslationConsent(message);
+      return;
+    }
     const assistantId = id();
     setMessages((current) => [
       ...current,
@@ -81,7 +99,7 @@ export function App() {
     setInput("");
     setStreaming(true);
     try {
-      await streamChat(message, language.code, externalSearchConsent, (event) => {
+      await streamChat(message, language.code, confirmedTranslationConsent, externalSearchConsent, (event) => {
         if (event.type === "message.delta") {
           setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, content: item.content + event.text } : item));
         }
@@ -95,13 +113,19 @@ export function App() {
             externalSearchConsentRequired: event.externalSearchConsentRequired,
           } : item));
           if (event.externalSearchConsentRequired) setPendingExternalSearchMessage(message);
+          if (event.formCode) {
+            setActiveFormCode(event.formCode);
+            setFormCodePending(true);
+          }
         }
-        if (event.type === "error") {
-          setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, content: event.message } : item));
+        if (event.type === "translation.consent_required") {
+          setTranslationProvider(event.provider);
+          setPendingTranslation(message);
         }
+        if (event.type === "error") setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, content: text.error } : item));
       });
     } catch (error) {
-      const fallback = error instanceof Error ? error.message : "Có lỗi xảy ra.";
+      const fallback = error instanceof Error ? error.message : text.error;
       setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, content: fallback } : item));
     } finally {
       setStreaming(false);
@@ -118,9 +142,26 @@ export function App() {
     await bootstrapSession();
     setMessages([]);
     setReviewTab(false);
+    setActiveFormCode(null);
+    setFormCodePending(false);
     setExternalSearchConsent(null);
+    setTranslationConsent(null);
     setPendingExternalSearchMessage(null);
   }
+
+  function allowTranslation() {
+    setTranslationConsent(true);
+    const message = pendingTranslation;
+    setPendingTranslation(null);
+    if (message) void send(message, true);
+  }
+
+  function declineTranslation() {
+    setPendingTranslation(null);
+    setNotice(text.translationDeclined);
+  }
+
+  const consumeActiveFormCode = useCallback(() => setFormCodePending(false), []);
 
   return (
     <div className="app-shell">
@@ -130,14 +171,14 @@ export function App() {
             <div className="brand">
               <span className="logo" aria-hidden="true">&#10022;</span>
               <div>
-                <h1>ICIVI <span>· Trợ lý Hành chính công AI</span></h1>
+                <h1>ICIVI <span>· {text.product}</span></h1>
                 <div className="meta-row">
                   <div className="language" ref={languageMenuRef}>
                     <button
                       aria-controls="language-menu"
                       aria-expanded={menuOpen}
                       aria-haspopup="listbox"
-                      aria-label={`Chọn ngôn ngữ, hiện tại ${language.label}`}
+                      aria-label={`${text.selectLanguage}, ${language.label}`}
                       className="language-button"
                       onClick={() => setMenuOpen((open) => !open)}
                       type="button"
@@ -147,29 +188,30 @@ export function App() {
                         <path d="m4 6 4 4 4-4" />
                       </svg>
                     </button>
-                    {menuOpen && <div aria-label="Danh sách ngôn ngữ" className="language-menu" id="language-menu" role="listbox">
+                    {menuOpen && <div aria-label={text.languageList} className="language-menu" id="language-menu" role="listbox">
                       {languages.map((item) => <button aria-selected={item.code === language.code} className={item.code === language.code ? "selected" : ""} key={item.code} onClick={() => { setLanguage(item); setMenuOpen(false); }} role="option" type="button"><span className="language-code">{item.code}</span>{item.label}</button>)}
                     </div>}
                   </div>
-                  <span className="status">Hệ thống trực tuyến 24/7</span>
+                  <span className="status">{text.online}</span>
                 </div>
               </div>
             </div>
-            <div className="session-meta">Phiên làm việc: #ADM-8829<br /><strong>Trạng thái: Trực tuyến</strong></div>
+            <div className="session-meta">{text.session}: #ADM-8829<br /><strong>{text.sessionStatus}</strong></div>
           </div>
         </header>
 
-        <nav className="tabs" aria-label="Chức năng ICIVI">
+        <nav className="tabs" aria-label="ICIVI">
           <div className="tabs-rail">
-            <button className={!reviewTab ? "active" : ""} onClick={() => setReviewTab(false)}>💬 Trò chuyện &amp; Khai đơn</button>
-            <button className={reviewTab ? "active" : ""} onClick={() => setReviewTab(true)}>📄 Rà soát &amp; Kiểm tra đơn</button>
+            <button className={!reviewTab ? "active" : ""} onClick={() => setReviewTab(false)}>💬 {text.chat}</button>
+            <button className={reviewTab ? "active" : ""} onClick={() => setReviewTab(true)}>📄 {text.review}{formCodePending && <span className="tab-badge" aria-label={text.newForm} />}</button>
           </div>
         </nav>
       </div>
 
-      {reviewTab ? <main className="review-placeholder"><span aria-hidden="true">📄</span><h2>Rà soát đơn đang được chuẩn bị</h2><p>Tính năng kiểm tra biểu mẫu và tài liệu chính thức sẽ được bổ sung trong giai đoạn tiếp theo.</p><button onClick={() => setReviewTab(false)}>Quay lại trò chuyện</button></main> : <main className="conversation">
-        {!isChatting ? <section className="welcome"><span className="mascot" aria-hidden="true">✦</span><h2>Xin chào! Tôi là <em>ICIVI</em> 👋</h2><p>Tôi giúp bạn bắt đầu tìm hiểu thủ tục hành chính bằng ngôn ngữ tự nhiên.</p><form className="input-wrap welcome-input" onSubmit={submit}><input aria-label="Nội dung cần hỗ trợ" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ví dụ: Tôi muốn đăng ký khai sinh cho bé..." /><button aria-label="Gửi yêu cầu" type="submit">➤</button></form><div className="suggestions">{suggestions.map((item, index) => <button className={index === 0 ? "primary" : ""} key={item} onClick={() => void send(item)}>{item}</button>)}</div><p className="privacy">🔒 Nội dung chỉ được dùng trong phiên hiện tại.</p></section> : <><button className="back" onClick={() => void reset()}>← Bắt đầu phiên mới</button><section className="stream" ref={streamRef} data-testid="message-stream" aria-live="polite">{messages.map((message) => <article key={message.id} className={`message ${message.role}`}><div className="speaker">{message.role === "assistant" ? "✦ Trợ lý ICIVI" : "Bạn"}</div><p>{message.content || ""}</p>{message.confidenceBand && <p className={`confidence ${message.confidenceBand}`}>Độ tin cậy: {message.confidenceBand === "high" ? "cao" : message.confidenceBand === "medium" ? "trung bình" : "thấp"}</p>}{message.citations && message.citations.length > 0 && <ol className="citations" aria-label="Nguồn tham chiếu">{message.citations.map((citation) => <li key={citation.citation_id}><strong>[{citation.citation_id}]</strong> {citation.source_type === "external" ? "Tham khảo: " : "Nguồn chính thức: "}{citation.source_url ? <a href={citation.source_url} rel="noreferrer" target="_blank">{citation.source_title}</a> : citation.source_title}{citation.document_number ? ` (${citation.document_number})` : ""}{citation.section_reference ? ` — ${citation.section_reference}` : ""}</li>)}</ol>}{message.externalSearchConsentRequired && pendingExternalSearchMessage && <button onClick={() => { setExternalSearchConsent(true); setPendingExternalSearchMessage(null); void send(pendingExternalSearchMessage); }}>Đồng ý tìm kiếm bên ngoài</button>}{message.quickReplies && message.quickReplies.length > 0 && <div className="quick-replies">{message.quickReplies.map((reply) => <button key={reply} onClick={() => void send(reply)}>{reply}</button>)}</div>}</article>)}{streaming && <div className="typing" aria-label="ICIVI đang trả lời"><i /><i /><i /></div>}</section><form className="input-bar" onSubmit={submit}><div className="input-wrap"><input aria-label="Nhập câu hỏi" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Nhập câu trả lời hoặc đặt câu hỏi..." disabled={streaming} /><button aria-label="Gửi tin nhắn" type="submit" disabled={streaming}>➤</button></div></form></>}
+      {reviewTab ? <main className="review-panel"><ReviewForm activeFormCode={activeFormCode} locale={language.code} onFormCodeConsumed={consumeActiveFormCode} /></main> : <main className="conversation">
+        {!isChatting ? <section className="welcome"><span className="mascot" aria-hidden="true">✦</span><h2>{text.welcome} <em>ICIVI</em> 👋</h2><p>{text.welcomeBody}</p><form className="input-wrap welcome-input" onSubmit={submit}><input aria-label={text.send} value={input} onChange={(event) => setInput(event.target.value)} placeholder={text.welcomeInput} /><button aria-label={text.send} type="submit">➤</button></form><div className="suggestions">{suggestions(language.code).map((item, index) => <button className={index === 0 ? "primary" : ""} key={item} onClick={() => void send(item)}>{item}</button>)}</div>{notice && <p className="notice" role="status">{notice}</p>}<p className="privacy">🔒 {text.privacy}</p></section> : <><button className="back" onClick={() => void reset()}>← {text.newSession}</button><section className="stream" ref={streamRef} data-testid="message-stream" aria-live="polite">{messages.map((message) => <article key={message.id} className={`message ${message.role}`}><div className="speaker">{message.role === "assistant" ? `✦ ${text.assistant}` : text.you}</div><p>{message.content || ""}</p>{message.confidenceBand && <p className={`confidence ${message.confidenceBand}`}>{text.confidence}: {text[message.confidenceBand]}</p>}{message.citations && message.citations.length > 0 && <ol className="citations" aria-label={text.citations}>{message.citations.map((citation) => <li key={citation.citation_id}><strong>[{citation.citation_id}]</strong> {citation.source_status === "snapshot" ? text.snapshot : text.verified} {citation.source_url ? <a href={citation.source_url} rel="noreferrer" target="_blank">{citation.source_title}</a> : citation.source_title}{citation.procedure_code ? ` (${text.sourceCode} ${citation.procedure_code})` : ""}{citation.document_number ? ` — ${citation.document_number}` : ""}{citation.section_reference ? ` — ${citation.section_reference}` : ""}{citation.crawled_at ? ` — ${new Date(citation.crawled_at).toLocaleDateString(language.dateLocale)}` : ""}</li>)}</ol>}{message.externalSearchConsentRequired && pendingExternalSearchMessage && <button onClick={() => { setExternalSearchConsent(true); setPendingExternalSearchMessage(null); void send(pendingExternalSearchMessage); }}>{text.externalSearch}</button>}{message.quickReplies && message.quickReplies.length > 0 && <div className="quick-replies">{message.quickReplies.map((reply) => <button key={reply} onClick={() => void send(reply)}>{reply}</button>)}</div>}</article>)}{streaming && <div className="typing" aria-label={text.typing}><i /><i /><i /></div>}</section><form className="input-bar" onSubmit={submit}><div className="input-wrap"><input aria-label={text.input} value={input} onChange={(event) => setInput(event.target.value)} placeholder={text.input} disabled={streaming} /><button aria-label={text.send} type="submit" disabled={streaming}>➤</button></div></form></>}
       </main>}
+      {pendingTranslation && <div className="consent-backdrop" role="presentation"><section aria-labelledby="translation-title" aria-modal="true" className="consent-dialog" role="dialog"><h2 id="translation-title">{text.translationTitle}</h2><p>{text.translationBody.replace("{provider}", translationProvider)}</p><div><button onClick={declineTranslation} type="button">{text.decline}</button><button className="primary" onClick={allowTranslation} type="button">{text.allow}</button></div></section></div>}
     </div>
   );
 }

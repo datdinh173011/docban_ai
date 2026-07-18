@@ -14,18 +14,32 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str = ""
     llm_model: str = ""
+    translation_enabled: bool = True
+    translation_provider_name: str = "AI"
+    translation_base_url: str = ""
+    translation_api_key: str = ""
+    translation_model: str = ""
+    translation_timeout_seconds: int = 20
     environment: Literal["LOCAL", "PRODUCTION"] = "PRODUCTION"
     llm_debug_logging: bool = False
     embedding_base_url: str = "https://api.openai.com/v1"
     embedding_api_key: str = ""
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
+    procedure_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    procedure_embedding_dimensions: int = 384
+    procedure_embedding_device: str = "cpu"
+    procedure_chunk_max_chars: int = 1200
+    procedure_chunk_overlap_chars: int = 200
     external_search_enabled: bool = False
     external_search_timeout_seconds: int = 10
     external_search_result_limit: int = 5
     external_search_allowed_domains: str = ""
     database_url: str = ""
-    knowledge_data_dir: Path = Path("data")
+    knowledge_data_dir: Path = Path(__file__).resolve().parents[1] / "runtime_data"
+    procedure_snapshot_dir: Path = Path(__file__).resolve().parents[1] / "data" / "dichvucong_xaydung"
+    procedure_catalog_path: Path | None = None
+    procedure_review_registry_path: Path | None = None
     retrieval_limit: int = 6
     redis_url: str = "redis://localhost:6379/0"
     session_ttl_seconds: int = 1800
@@ -38,6 +52,18 @@ class Settings(BaseSettings):
         if not self.database_url:
             raise RuntimeError("DATABASE_URL must be configured in the runtime environment")
         return self.database_url
+
+    @property
+    def effective_translation_base_url(self) -> str:
+        return self.translation_base_url or self.llm_base_url
+
+    @property
+    def effective_translation_api_key(self) -> str:
+        return self.translation_api_key or self.llm_api_key
+
+    @property
+    def effective_translation_model(self) -> str:
+        return self.translation_model or self.llm_model
 
 
 @lru_cache

@@ -16,6 +16,10 @@ class Citation:
     administrative_area_code: str | None
     quote_preview: str
     source_type: str = "government"
+    source_status: str = "reviewed"
+    crawled_at: str | None = None
+    procedure_code: str | None = None
+    snapshot_path: str | None = None
 
     def to_dict(self) -> dict[str, str | None]:
         return {
@@ -31,6 +35,10 @@ class Citation:
             "administrative_area_code": self.administrative_area_code,
             "quote_preview": self.quote_preview,
             "source_type": self.source_type,
+            "source_status": self.source_status,
+            "crawled_at": self.crawled_at,
+            "procedure_code": self.procedure_code,
+            "snapshot_path": self.snapshot_path,
         }
 
 

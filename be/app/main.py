@@ -8,20 +8,24 @@ from contextlib import asynccontextmanager
 
 from fastapi import Cookie, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from redis.asyncio import Redis
+from sqlalchemy import text
 
 from app.config import Settings, get_settings
 from app.db import create_database_engine
-from app.embeddings import EmbeddingClient
-from app.external_search import DisabledExternalSearchAdapter
-from app.graph import build_graph
-from app.llm import OpenAICompatibleClient
-from app.rag import RagService
-from app.structured_query import StructuredQueryService
+from app.form_conversation import maybe_fill_form
+from app.form_export import ExportError, render_export
+from app.form_validation import canonical_input_hash, validate_form
 from app.logging_config import configure_logging
-from app.schemas import ChatRequest
+from app.procedure_catalog import load_catalog
+from app.procedure_pipeline import ProcedurePipeline, ReviewRegistry
+from app.procedure_embeddings import ProcedureEmbeddingClient
+from app.procedure_rag import ProcedureRagService
+from app.procedure_settings import get_procedure_settings
+from app.schemas import ChatRequest, FormDraftResponse, FormDraftUpdateRequest, FormExportRequest, FormFieldSchema, FormGroupSchema, FormSchemaResponse, ValidationResult
 from app.session_store import SessionStore
+from app.translation import TranslationError, TranslationService, VIETNAMESE
 
 logger = logging.getLogger(__name__)
 
@@ -42,15 +46,18 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         configure_logging()
         app.state.redis = redis_client or Redis.from_url(settings.redis_url, decode_responses=True)
         app.state.store = SessionStore(app.state.redis, settings.session_ttl_seconds)
+        app.state.translation_service = TranslationService(settings)
         app.state.database = create_database_engine(settings)
-        app.state.graph = build_graph(
-            OpenAICompatibleClient(settings),
-            RagService(app.state.database, EmbeddingClient(settings), settings.retrieval_limit),
-            StructuredQueryService(app.state.database),
-            DisabledExternalSearchAdapter(),
-            settings.external_search_enabled,
-            settings.llm_debug_logging,
+        procedure_settings = get_procedure_settings()
+        catalog = load_catalog(str(settings.procedure_snapshot_dir), str(settings.procedure_catalog_path) if settings.procedure_catalog_path else None)
+        app.state.procedure_pipeline = ProcedurePipeline(
+            catalog,
+            settings.retrieval_limit,
+            ReviewRegistry.load(settings.procedure_review_registry_path),
+            ProcedureRagService(app.state.database, ProcedureEmbeddingClient(settings), settings.retrieval_limit),
+            procedure_settings,
         )
+        logger.info("procedure_snapshot_loaded procedure_count=%d crawled_at=%s", len(catalog.records), catalog.crawled_at)
         yield
         await app.state.database.dispose()
         if redis_client is None:
@@ -61,7 +68,7 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         CORSMiddleware,
         allow_origins=[settings.cors_origin],
         allow_credentials=True,
-        allow_methods=["GET", "POST", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Content-Type"],
     )
 
@@ -114,46 +121,75 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         async def events() -> AsyncIterator[str]:
             started = time.perf_counter()
             try:
-                messages = [*state.get("messages", []), {"role": "user", "content": chat_request.message}]
-                external_search_consent = state.get("external_search_consent", False)
-                if chat_request.external_search_consent is not None:
-                    external_search_consent = chat_request.external_search_consent
-                result = await app.state.graph.ainvoke({
+                needs_translation = chat_request.language_code != VIETNAMESE
+                translation_consent = chat_request.translation_consent or state.get("translation_consent", False)
+                if needs_translation and not translation_consent:
+                    yield sse("translation.consent_required", {"provider": settings.translation_provider_name})
+                    return
+                canonical_message = await app.state.translation_service.to_vietnamese(
+                    chat_request.message, chat_request.language_code,
+                )
+                messages = [*state.get("messages", []), {"role": "user", "content": canonical_message}]
+                result = await app.state.procedure_pipeline.ainvoke({
                     "messages": messages,
                     "request_id": request_id,
                     "language_code": chat_request.language_code,
-                    "intent": state.get("intent", "general"),
                     "active_procedure_code": state.get("active_procedure_code"),
-                    "active_scenario_code": state.get("active_scenario_code"),
-                    "external_search_consent": external_search_consent,
                     "administrative_area_code": state.get("administrative_area_code"),
-                    "retrieved_chunks": [],
-                    "citations": [],
+                    "candidate_codes": state.get("candidate_codes", []),
+                    "selection_filters": state.get("selection_filters", {}),
+                    "pending_filter": state.get("pending_filter"),
+                    "locality_required": state.get("locality_required", False),
                 })
-                reply = result["reply"]
+                reply, form_patch = await maybe_fill_form(
+                    {**state, "language_code": VIETNAMESE}, result, settings, app.state.procedure_pipeline.procedure_settings, messages,
+                )
+                canonical_answer = reply.answer
+                if needs_translation:
+                    reply.answer = await app.state.translation_service.from_vietnamese(reply.answer, chat_request.language_code)
+                    reply.quick_replies = [
+                        await app.state.translation_service.from_vietnamese(value, chat_request.language_code)
+                        for value in reply.quick_replies
+                    ]
                 for word in reply.answer.split(" "):
                     yield sse("message.delta", {"text": f"{word} "})
                     await asyncio.sleep(0)
+                form_code = form_patch["form_code"] if form_patch else None
                 new_state = {
-                    "messages": [*messages, {"role": "assistant", "content": reply.answer}][-12:],
+                    "messages": [*messages, {"role": "assistant", "content": canonical_answer}][-12:],
                     "language_code": chat_request.language_code,
+                    "translation_consent": bool(translation_consent),
                     "intent": reply.intent,
                     "active_procedure_code": result.get("active_procedure_code"),
-                    "active_scenario_code": result.get("active_scenario_code"),
-                    "external_search_consent": external_search_consent,
+                    "active_scenario_code": form_code if form_code else state.get("active_scenario_code"),
+                    "candidate_codes": result.get("candidate_codes", []),
+                    "selection_filters": result.get("selection_filters", {}),
+                    "pending_filter": result.get("pending_filter"),
+                    "locality_required": result.get("locality_required", False),
+                    "administrative_area_code": result.get("administrative_area_code"),
+                    "form_draft": {**state.get("form_draft", {}), form_code: form_patch["fields"]} if form_patch else state.get("form_draft", {}),
+                    "last_validation": state.get("last_validation", {}),
                 }
                 await app.state.store.save(current_session_id, new_state)
                 yield sse("message.complete", {
                     "intent": reply.intent,
                     "quick_replies": reply.quick_replies,
-                    "citations": result.get("citations", []),
+                    # Citations belong to the deterministic pipeline's own reply; when
+                    # maybe_fill_form overrides `reply` (form_guidance), those citations
+                    # are stale/unrelated and must not be shown alongside a different answer.
+                    "citations": result.get("citations", []) if reply.intent == "procedure_guidance" else [],
                     "answer_strategy": reply.answer_strategy,
                     "confidence_score": reply.confidence_score,
                     "confidence_band": reply.confidence_band,
                     "confidence_reasons": reply.confidence_reasons,
                     "external_search_used": reply.external_search_used,
                     "external_search_consent_required": reply.external_search_consent_required,
+                    "form_code": form_code,
+                    "translation_used": needs_translation,
                 })
+            except TranslationError as exc:
+                logger.warning("translation_unavailable request_id=%s session=%s reason=%s", request_id, session_hash(current_session_id), str(exc))
+                yield sse("error", {"code": "translation_unavailable", "message": "Không thể dịch yêu cầu lúc này."})
                 logger.info("chat_complete request_id=%s session=%s latency_ms=%d", request_id, session_hash(current_session_id), (time.perf_counter() - started) * 1000)
             except Exception as exc:  # Keep the SSE connection protocol stable for clients.
                 logger.exception("chat_error request_id=%s session=%s error=%s", request_id, session_hash(current_session_id), type(exc).__name__)
@@ -167,6 +203,120 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         if is_new:
             set_session_cookie(stream_response, current_session_id)
         return stream_response
+
+    @app.get("/api/v1/sources/{procedure_code}")
+    async def source_pdf(procedure_code: str) -> FileResponse:
+        """Serve only a published procedure PDF selected by its catalog code."""
+        async with app.state.database.connect() as connection:
+            pdf_path = await connection.scalar(text("""
+                SELECT pc.pdf_path FROM procedure_catalog pc JOIN procedure_snapshot ps ON ps.id = pc.snapshot_id
+                WHERE pc.procedure_code = :code AND ps.status = 'published' ORDER BY ps.crawled_at DESC LIMIT 1
+            """), {"code": procedure_code})
+        if not pdf_path:
+            raise HTTPException(status_code=404, detail="Published source not found")
+        root = settings.procedure_snapshot_dir.resolve()
+        target = (root / pdf_path).resolve()
+        if root not in target.parents or not target.is_file():
+            raise HTTPException(status_code=404, detail="Source file not found")
+        return FileResponse(target, media_type="application/pdf", filename=target.name)
+
+    def _form_candidate_or_404(form_code: str):
+        candidate = app.state.procedure_pipeline.procedure_settings.form_candidates.get(form_code)
+        if candidate is None:
+            raise HTTPException(status_code=404, detail="Unknown form_code")
+        return candidate
+
+    @app.get("/api/v1/forms/{form_code}/schema")
+    async def form_schema(form_code: str) -> FormSchemaResponse:
+        candidate = _form_candidate_or_404(form_code)
+        return FormSchemaResponse(
+            form_code=candidate.form_code,
+            title_vi=candidate.title_vi,
+            groups=[
+                FormGroupSchema(group_code=group.group_code, label_vi=group.label_vi, display_order=group.display_order)
+                for group in candidate.groups
+            ],
+            fields=[
+                FormFieldSchema(
+                    field_code=field.field_code,
+                    label_vi=field.label_vi,
+                    group_code=field.group_code,
+                    data_type=field.data_type,
+                    required=field.required,
+                    enum_values=list(field.validation.enum_values) if field.validation.enum_values else None,
+                )
+                for field in candidate.fields
+            ],
+        )
+
+    @app.get("/api/v1/forms/{form_code}/draft")
+    async def get_form_draft(
+        form_code: str, http_response: Response, session_id: str | None = Cookie(default=None, alias=settings.session_cookie_name),
+    ) -> FormDraftResponse:
+        _form_candidate_or_404(form_code)
+        current_session_id, state, is_new = await ensure_session(session_id)
+        if is_new:
+            set_session_cookie(http_response, current_session_id)
+        return FormDraftResponse(form_code=form_code, fields=state.get("form_draft", {}).get(form_code, {}), updated_at=state.get("updated_at"))
+
+    @app.put("/api/v1/forms/{form_code}/draft")
+    async def update_form_draft(
+        form_code: str,
+        payload: FormDraftUpdateRequest,
+        http_response: Response,
+        session_id: str | None = Cookie(default=None, alias=settings.session_cookie_name),
+    ) -> FormDraftResponse:
+        _form_candidate_or_404(form_code)
+        current_session_id, state, is_new = await ensure_session(session_id)
+        if is_new:
+            set_session_cookie(http_response, current_session_id)
+        merged = {**state.get("form_draft", {}).get(form_code, {}), **payload.fields}
+        new_state = {**state, "form_draft": {**state.get("form_draft", {}), form_code: merged}}
+        await app.state.store.save(current_session_id, new_state)
+        return FormDraftResponse(form_code=form_code, fields=merged, updated_at=new_state.get("updated_at"))
+
+    @app.post("/api/v1/forms/{form_code}/validate")
+    async def validate_form_draft(
+        form_code: str, http_response: Response, session_id: str | None = Cookie(default=None, alias=settings.session_cookie_name),
+    ) -> ValidationResult:
+        candidate = _form_candidate_or_404(form_code)
+        current_session_id, state, is_new = await ensure_session(session_id)
+        if is_new:
+            set_session_cookie(http_response, current_session_id)
+        draft = state.get("form_draft", {}).get(form_code, {})
+        result = validate_form(candidate, draft)
+        new_state = {**state, "last_validation": {**state.get("last_validation", {}), form_code: result.model_dump()}}
+        await app.state.store.save(current_session_id, new_state)
+        return result
+
+    @app.post("/api/v1/forms/{form_code}/exports/pdf")
+    async def export_form_pdf(
+        form_code: str,
+        payload: FormExportRequest,
+        http_response: Response,
+        session_id: str | None = Cookie(default=None, alias=settings.session_cookie_name),
+    ) -> Response:
+        candidate = _form_candidate_or_404(form_code)
+        current_session_id, state, is_new = await ensure_session(session_id)
+        if is_new:
+            set_session_cookie(http_response, current_session_id)
+        stored = state.get("last_validation", {}).get(form_code)
+        if not stored or stored.get("validation_id") != payload.validation_id:
+            raise HTTPException(status_code=409, detail="Unknown or mismatched validation_id; validate the form again")
+        draft = state.get("form_draft", {}).get(form_code, {})
+        if canonical_input_hash(draft) != stored.get("input_hash"):
+            raise HTTPException(status_code=409, detail="Form data changed since validation; validate again before exporting")
+        if stored.get("summary", {}).get("blocking_error", 0) > 0:
+            raise HTTPException(status_code=422, detail="Form still has blocking errors; fix them before exporting")
+        try:
+            pdf_bytes = render_export(candidate, draft)
+        except ExportError as exc:
+            raise HTTPException(status_code=422, detail=f"export_failed:{exc.reason}:{exc.field_code}") from exc
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{form_code.lower()}.pdf"'},
+        )
 
     return app
 
