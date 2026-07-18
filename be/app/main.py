@@ -146,6 +146,14 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                 analysis = await app.state.conversation_agent.ainvoke(agent_state)
                 pipeline_messages = [*messages[:-1], {"role": "user", "content": analysis.normalized_query}]
                 context = dict(state.get("conversation_context") or {})
+                if analysis.consumed_pending_question_id:
+                    context.update({
+                        "pending_question": None,
+                        "pending_options": [],
+                        "pending_slot": None,
+                        "pending_question_id": None,
+                        "pending_action": None,
+                    })
                 context_slots = dict(context.get("slots", {}))
                 context_slot_sources = dict(context.get("slot_sources", {}))
                 for rejected in analysis.rejected_slots:
@@ -171,6 +179,8 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                         "form_stage": "not_started",
                         "pending_action": None,
                         "pending_form_code": None,
+                        "pending_slot": None,
+                        "pending_question_id": None,
                         "last_reviewed_input_hash": None,
                     })
                 form_patch = None
@@ -198,6 +208,8 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     context.update({
                         "pending_question": analysis.clarifying_question,
                         "pending_options": analysis.quick_replies,
+                        "pending_slot": analysis.missing_slot,
+                        "pending_question_id": analysis.pending_question_id,
                         "pending_action": (
                             f"scenario_disambiguation:{analysis.scenario_rule_id}"
                             if analysis.scenario_rule_id else None
@@ -224,7 +236,15 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                             confidence_band="high",
                         )
                         ui_action = {"type": "open_form_review", "auto_validate": True, "request_id": secrets.token_urlsafe(12)}
-                        context.update({"active_form_code": form_code, "form_stage": "ready_for_review", "pending_action": None})
+                        context.update({
+                            "active_form_code": form_code,
+                            "form_stage": "ready_for_review",
+                            "pending_action": None,
+                            "pending_question": None,
+                            "pending_options": [],
+                            "pending_slot": None,
+                            "pending_question_id": None,
+                        })
                     else:
                         form_code = None
                         reply = AssistantReply(
@@ -266,6 +286,8 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                             "pending_form_code": None,
                             "pending_question": None,
                             "pending_options": [],
+                            "pending_slot": None,
+                            "pending_question_id": None,
                         })
                     elif prospective_form_code and not active_form_code and analysis.user_action != "start_form":
                         reply = AssistantReply(
@@ -281,6 +303,8 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                             "pending_form_code": prospective_form_code,
                             "pending_question": reply.answer,
                             "pending_options": reply.quick_replies,
+                            "pending_slot": None,
+                            "pending_question_id": None,
                         })
                     else:
                         effective_state = {**state, "language_code": VIETNAMESE}
@@ -297,6 +321,10 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                                 "active_form_code": form_code,
                                 "pending_action": None,
                                 "pending_form_code": None,
+                                "pending_question": None,
+                                "pending_options": [],
+                                "pending_slot": None,
+                                "pending_question_id": None,
                                 "form_stage": "ready_for_review" if form_patch["complete"] else "filling",
                             })
                             if form_patch["complete"]:

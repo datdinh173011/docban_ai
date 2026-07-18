@@ -419,6 +419,30 @@ async def test_debug_trace_logs_each_layer_and_never_logs_api_key(capsys) -> Non
                         "language_code": "vi",
                     },
                 )
+                session_id = client.cookies.get("icivi_session")
+                state = await traced_app.state.store.get(session_id)
+                state["conversation_context"].update({
+                    "user_goal": "Tôi cần xử lý thủ tục đất đai",
+                    "slots": {"group": "Đất đai"},
+                    "slot_sources": {"group": "session_context"},
+                    "pending_question": "Bạn cần xử lý trường hợp đất đai nào?",
+                    "pending_options": [
+                        "Cấp giấy chứng nhận trong dự án BĐS",
+                        "Chuyển nhượng/thừa kế/tặng cho/góp vốn",
+                    ],
+                    "pending_slot": "scenario",
+                    "pending_question_id": "trace-land-question",
+                    "pending_action": None,
+                })
+                await traced_app.state.store.save(session_id, state)
+                await client.post(
+                    "/api/v1/chat/stream",
+                    headers={"x-request-id": "trace-request-3"},
+                    json={
+                        "message": "Chuyển nhượng/thừa kế/tặng cho/góp vốn",
+                        "language_code": "vi",
+                    },
+                )
         finally:
             conversation_agent.httpx.AsyncClient = original_client
 
@@ -430,6 +454,7 @@ async def test_debug_trace_logs_each_layer_and_never_logs_api_key(capsys) -> Non
         "conversation_llm_fallback",
         "scenario_resolution",
             "conversation_analysis",
+            "pending_answer_consumed",
             "candidate_filter",
             "procedure_ranking",
             "routing_decision",
@@ -455,3 +480,109 @@ async def test_debug_trace_is_silent_when_flag_is_disabled(app, capsys) -> None:
     assert "conversation_input" not in logs
     assert "conversation_llm_request" not in logs
     assert "routing_decision_detail" not in logs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "answer",
+    ["Chuyển nhượng/thừa kế/tặng cho/góp vốn", "CHUYỂN NHƯỢNG/THỪA KẾ/TẶNG CHO/GÓP VỐN", "2"],
+)
+async def test_pending_land_option_is_consumed_before_llm(app, monkeypatch, answer: str) -> None:
+    async with app.router.lifespan_context(app):
+        agent = app.state.conversation_agent
+        agent.settings.llm_api_key = "must-not-be-used"
+        agent.settings.llm_model = "must-not-be-used"
+
+        class ForbiddenClient:
+            def __init__(self, *args, **kwargs) -> None:
+                raise AssertionError("LLM must not run for an exact pending option")
+
+        monkeypatch.setattr("app.conversation_agent.httpx.AsyncClient", ForbiddenClient)
+        analysis = await agent.ainvoke({
+            "messages": [{"role": "user", "content": answer}],
+            "conversation_context": {
+                "user_goal": "Tôi cần xử lý thủ tục đất đai",
+                "slots": {"group": "Đất đai"},
+                "slot_sources": {"group": "session_context"},
+                "pending_question": "Bạn cần xử lý trường hợp đất đai nào?",
+                "pending_options": [
+                    "Cấp giấy chứng nhận trong dự án BĐS",
+                    "Chuyển nhượng/thừa kế/tặng cho/góp vốn",
+                    "Khác/chưa rõ",
+                ],
+                "pending_slot": None,
+                "pending_question_id": "land-question-1",
+                "pending_action": None,
+            },
+            "active_scenario_code": None,
+            "active_procedure_code": None,
+        })
+
+    assert analysis.route == "procedure_lookup"
+    assert analysis.consumed_pending_question_id == "land-question-1"
+    assert analysis.slot_updates["group"] == "Đất đai"
+    assert analysis.slot_updates["scenario"] == "Chuyển nhượng/thừa kế/tặng cho/góp vốn đất"
+    assert analysis.slot_sources["scenario"] == "pending_answer"
+    assert "Lựa chọn: Chuyển nhượng/thừa kế/tặng cho/góp vốn" in analysis.normalized_query
+
+
+@pytest.mark.asyncio
+async def test_free_text_does_not_get_forced_into_pending_option(app) -> None:
+    async with app.router.lifespan_context(app):
+        analysis = await app.state.conversation_agent.ainvoke({
+            "messages": [{"role": "user", "content": "Tôi chưa rõ trường hợp của gia đình mình"}],
+            "conversation_context": {
+                "slots": {"group": "Đất đai"},
+                "pending_question": "Bạn cần xử lý trường hợp đất đai nào?",
+                "pending_options": [
+                    "Cấp giấy chứng nhận trong dự án BĐS",
+                    "Chuyển nhượng/thừa kế/tặng cho/góp vốn",
+                ],
+                "pending_slot": "scenario",
+                "pending_question_id": "land-question-2",
+                "pending_action": None,
+            },
+            "active_scenario_code": None,
+            "active_procedure_code": None,
+        })
+
+    assert analysis.consumed_pending_question_id is None
+
+
+@pytest.mark.asyncio
+async def test_land_branch_selection_keeps_group_and_does_not_repeat_top_level_question(app) -> None:
+    async with app.router.lifespan_context(app):
+        app.state.procedure_pipeline.rag_service = None
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            await client.post("/api/v1/sessions")
+            session_id = client.cookies.get("icivi_session")
+            state = await app.state.store.get(session_id)
+            state["conversation_context"].update({
+                "user_goal": "Tôi cần xử lý thủ tục đất đai",
+                "slots": {"group": "Đất đai"},
+                "slot_sources": {"group": "session_context"},
+                "pending_question": "Bạn cần xử lý trường hợp đất đai nào?",
+                "pending_options": [
+                    "Cấp giấy chứng nhận trong dự án BĐS",
+                    "Chuyển nhượng/thừa kế/tặng cho/góp vốn",
+                    "Khác/chưa rõ",
+                ],
+                "pending_slot": "scenario",
+                "pending_question_id": "land-question-api",
+                "pending_action": None,
+            })
+            await app.state.store.save(session_id, state)
+
+            response = await client.post(
+                "/api/v1/chat/stream",
+                json={"message": "Chuyển nhượng/thừa kế/tặng cho/góp vốn", "language_code": "vi"},
+            )
+            updated = await app.state.store.get(session_id)
+
+    payload = _complete_payload(response.text)
+    assert updated["conversation_context"]["slots"]["group"] == "Đất đai"
+    assert updated["conversation_context"]["slots"]["scenario"] == "Chuyển nhượng/thừa kế/tặng cho/góp vốn đất"
+    assert updated["conversation_context"]["slot_sources"]["scenario"] == "pending_answer"
+    assert updated["conversation_context"]["pending_question_id"] is None
+    assert len(updated["candidate_codes"]) <= 10
+    assert "Đất đai" not in payload["quick_replies"]

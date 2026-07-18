@@ -32,6 +32,8 @@ class SessionStore:
                 "context_summary": None,
                 "pending_question": None,
                 "pending_options": [],
+                "pending_slot": None,
+                "pending_question_id": None,
                 "pending_action": None,
                 "pending_form_code": None,
                 "active_form_code": None,

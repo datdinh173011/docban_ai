@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import time
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Literal
 
@@ -60,6 +61,8 @@ class ConversationAnalysis(BaseModel):
     slot_sources: dict[str, SlotSource] = Field(default_factory=dict)
     rejected_slots: list[dict[str, str]] = Field(default_factory=list)
     scenario_rule_id: str | None = None
+    pending_question_id: str | None = None
+    consumed_pending_question_id: str | None = None
 
 
 def _read_list(path: Path) -> list[dict[str, Any]]:
@@ -139,6 +142,111 @@ class ConversationAgent:
                 return rule
         return None
 
+    @staticmethod
+    def _question_id(question: str | None, options: list[str]) -> str | None:
+        if not question:
+            return None
+        payload = json.dumps({"question": question, "options": options}, ensure_ascii=False, sort_keys=True)
+        return sha256(payload.encode("utf-8")).hexdigest()[:12]
+
+    def _infer_missing_slot(self, question: str | None, options: list[str]) -> str | None:
+        if not question:
+            return None
+        if normalize_text(question) == normalize_text("Bạn đang cần giải quyết vấn đề thuộc nhóm nào?"):
+            return "group"
+        for topic in self.topic_scenarios:
+            if normalize_text(question) == normalize_text(str(topic.get("Câu hỏi nhánh", ""))):
+                if topic.get("Đề mục") == "Đất đai":
+                    return "scenario"
+                break
+        best: tuple[float, str] | None = None
+        for attribute in _SLOT_ATTRIBUTES:
+            values = {getattr(record, attribute) for record in self.catalog.records}
+            option_scores: list[float] = []
+            for option in options:
+                option_tokens = tokens(option)
+                score = max(
+                    (len(option_tokens & tokens(value)) / max(min(len(option_tokens), len(tokens(value))), 1) for value in values),
+                    default=0,
+                )
+                option_scores.append(score)
+            average = sum(option_scores) / max(len(option_scores), 1)
+            if best is None or average > best[0]:
+                best = (average, attribute)
+        return best[1] if best and best[0] >= 0.5 else None
+
+    def _canonical_pending_value(
+        self, slot: str, choice: str, context_slots: dict[str, str],
+    ) -> str | None:
+        if slot not in _SLOT_ATTRIBUTES:
+            return None
+        records = self.catalog.records
+        for attribute, value in context_slots.items():
+            if attribute in _SLOT_ATTRIBUTES and attribute != slot:
+                records = [record for record in records if getattr(record, attribute) == value]
+        values = {getattr(record, slot) for record in records}
+        choice_tokens = tokens(choice)
+        ranked: list[tuple[float, str]] = []
+        for value in values:
+            normalized_choice = normalize_text(choice)
+            normalized_value = normalize_text(value)
+            if normalized_choice == normalized_value or normalized_choice in normalized_value or normalized_value in normalized_choice:
+                score = 1
+            else:
+                value_tokens = tokens(value)
+                score = len(choice_tokens & value_tokens) / max(min(len(choice_tokens), len(value_tokens)), 1)
+            ranked.append((score, value))
+        ranked.sort(reverse=True)
+        if not ranked or ranked[0][0] < 0.6 or (len(ranked) > 1 and ranked[0][0] == ranked[1][0]):
+            return None
+        return ranked[0][1]
+
+    def _pending_option_answer(self, message: str, context: dict[str, Any], state: dict[str, Any]) -> ConversationAnalysis | None:
+        if context.get("pending_action"):
+            return None
+        options = context.get("pending_options") or []
+        if not isinstance(options, list) or not options:
+            return None
+        normalized = normalize_text(message.strip())
+        choice = None
+        if message.strip().isdigit() and 1 <= int(message.strip()) <= len(options):
+            choice = options[int(message.strip()) - 1]
+        if choice is None:
+            choice = next(
+                (option for option in options if normalize_text(str(option)) == normalized),
+                None,
+            )
+        if choice is None:
+            return None
+        pending_slot = context.get("pending_slot") or self._infer_missing_slot(context.get("pending_question"), options)
+        context_slots = dict(context.get("slots") or {})
+        slot_updates = self._explicit_slot_updates(str(choice))
+        if pending_slot:
+            canonical = self._canonical_pending_value(pending_slot, str(choice), context_slots)
+            if canonical:
+                slot_updates[pending_slot] = canonical
+        if context_slots.get("group") and pending_slot != "group":
+            slot_updates["group"] = context_slots["group"]
+        question_id = context.get("pending_question_id") or self._question_id(context.get("pending_question"), options)
+        previous_goal = str(context.get("user_goal") or "").strip()
+        normalized_query = f"{previous_goal}. Lựa chọn: {choice}".strip(". ") if previous_goal else str(choice)
+        self._trace(
+            "pending_answer_consumed",
+            state,
+            question_id=question_id,
+            option=choice,
+            pending_slot=pending_slot,
+            slot_updates=slot_updates,
+        )
+        return ConversationAnalysis(
+            route="procedure_lookup",
+            normalized_query=normalized_query,
+            slot_updates=slot_updates,
+            slot_sources={key: "pending_answer" for key in slot_updates},
+            confidence=1,
+            consumed_pending_question_id=question_id,
+        )
+
     def _pending_rule_answer(self, message: str, context: dict[str, Any]) -> ConversationAnalysis | None:
         pending_action = str(context.get("pending_action") or "")
         if not pending_action.startswith("scenario_disambiguation:"):
@@ -147,6 +255,9 @@ class ConversationAgent:
         if not rule:
             return None
         normalized = normalize_text(message)
+        question_id = context.get("pending_question_id") or self._question_id(
+            context.get("pending_question"), context.get("pending_options") or [],
+        )
         choice = next(
             (item for item in rule.get("Lựa chọn", []) if normalize_text(item) == normalized or normalize_text(item) in normalized),
             None,
@@ -159,6 +270,7 @@ class ConversationAgent:
                 quick_replies=rule.get("Lựa chọn", []),
                 confidence=0.95,
                 scenario_rule_id=rule["Mã"],
+                pending_question_id=question_id,
             )
         outcome = rule.get("Xử lý lựa chọn", {}).get(choice, {})
         slot_updates = dict(outcome.get("Gán slot", {}))
@@ -176,6 +288,7 @@ class ConversationAgent:
                 clarifying_question=outcome["Câu hỏi tiếp theo"],
                 quick_replies=outcome.get("Lựa chọn tiếp theo", []),
                 confidence=0.98,
+                consumed_pending_question_id=question_id,
             )
         return ConversationAnalysis(
             route="procedure_lookup",
@@ -184,6 +297,7 @@ class ConversationAgent:
             slot_sources={key: "pending_answer" for key in slot_updates},
             rejected_slots=rejected_slots,
             confidence=0.98,
+            consumed_pending_question_id=question_id,
         )
 
     def _explicit_slot_updates(self, message: str) -> dict[str, str]:
@@ -223,6 +337,10 @@ class ConversationAgent:
         pending_rule = self._pending_rule_answer(message, context)
         if pending_rule:
             return pending_rule
+
+        pending_option = self._pending_option_answer(message, context, state)
+        if pending_option:
+            return pending_option
 
         if active_form and any(phrase in normalized for phrase in _FORM_FINISH_PHRASES):
             return ConversationAnalysis(
@@ -354,7 +472,7 @@ class ConversationAgent:
                 })
                 continue
             canonical_slots[attribute] = matched
-            analysis.slot_sources[attribute] = "explicit_user" if explicit_evidence else source
+            analysis.slot_sources[attribute] = "explicit_user" if source == "llm_inferred" and explicit_evidence else source
         analysis.slot_updates = canonical_slots
         analysis.slot_sources = {key: value for key, value in analysis.slot_sources.items() if key in canonical_slots}
         analysis.quick_replies = analysis.quick_replies[:7]
@@ -396,6 +514,12 @@ class ConversationAgent:
         raw_slots = dict(analysis.slot_updates)
         validated = self._validate_analysis(analysis, state)
         final = self._apply_disambiguation(validated, state)
+        if final.route == "clarify":
+            if final.missing_slot not in _SLOT_ATTRIBUTES and final.missing_slot != "structure_purpose":
+                final.missing_slot = self._infer_missing_slot(final.clarifying_question, final.quick_replies)
+            final.pending_question_id = final.pending_question_id or self._question_id(
+                final.clarifying_question, final.quick_replies,
+            )
         self._trace(
             "conversation_analysis",
             state,
@@ -454,8 +578,19 @@ class ConversationAgent:
         )
         fallback = self._fallback(state)
         self._trace("conversation_fallback", state, analysis=fallback.model_dump())
-        if fallback.route in {"form_review", "form_flow"} or not self.settings.llm_api_key or not self.settings.llm_model:
-            reason = "deterministic_route" if fallback.route in {"form_review", "form_flow"} else "missing_llm_configuration"
+        if (
+            fallback.route in {"form_review", "form_flow"}
+            or fallback.consumed_pending_question_id
+            or not self.settings.llm_api_key
+            or not self.settings.llm_model
+        ):
+            reason = (
+                "pending_answer"
+                if fallback.consumed_pending_question_id
+                else "deterministic_route"
+                if fallback.route in {"form_review", "form_flow"}
+                else "missing_llm_configuration"
+            )
             return self._finalize(fallback, state, reason)
 
         system_prompt = self._system_prompt(state)
