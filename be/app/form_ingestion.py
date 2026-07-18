@@ -58,22 +58,9 @@ class FormInspection:
 
 
 FORM_SOURCES: tuple[FormSourceSpec, ...] = (
-    FormSourceSpec("00_danh_muc_bieu_mau_3_thu_tuc_2026.pdf", "FORM_CATALOG_2026", None, "inventory", "inventory_pdf", "Danh mục biểu mẫu 3 thủ tục", "catalog", 2, ("DANH MỤC BIỂU MẪU", "Mẫu CT01")),
     FormSourceSpec("01_to_khai_dang_ky_khai_sinh.pdf", "BIRTH_REGISTRATION_FORM_2026", "BIRTH_REGISTRATION_FORM", "primary_form", "form_pdf", "Tờ khai đăng ký khai sinh", "birth_registration", 2, ("TỜ KHAI ĐĂNG KÝ KHAI SINH", "Họ, chữ đệm, tên người yêu cầu", "Họ, chữ đệm, tên người mẹ"), ("applicant_full_name", "child_full_name", "child_birth_date", "mother_full_name", "father_full_name")),
     FormSourceSpec("02_mau_CT01_TT116_2026.pdf", "PERMANENT_RESIDENCE_CT01_2026", "PERMANENT_RESIDENCE_CT01_FORM", "primary_form", "form_pdf", "Mẫu CT01 - Tờ khai thay đổi thông tin cư trú", "permanent_residence_ct01", 2, ("TỜ KHAI THAY ĐỔI THÔNG TIN CƯ TRÚ", "Số định danh cá nhân", "Những thành viên trong hộ gia đình"), ("applicant_full_name", "citizen_id", "household_head_name", "residence_request", "household_members")),
     FormSourceSpec("03_don_de_nghi_cap_gpxd_nha_o_rieng_le.pdf", "CONSTRUCTION_PERMIT_REQUEST_2026", "CONSTRUCTION_PERMIT_REQUEST_FORM", "primary_form", "form_pdf", "Đơn đề nghị cấp giấy phép xây dựng", "construction_detached_house", 4, ("ĐƠN ĐỀ NGHỊ CẤP GIẤY PHÉP XÂY DỰNG", "4.4. Đối với công trình nhà ở riêng lẻ", "NGƯỜI LÀM ĐƠN"), ("owner_name", "owner_citizen_id", "construction_address", "first_floor_area", "total_floor_area", "building_height", "floor_count"), True),
-    FormSourceSpec("04_giay_cam_doan_ve_viec_sinh.pdf", "BIRTH_DECLARATION_SUPPORT_2026", "BIRTH_DECLARATION_SUPPORT", "reference_support", "form_pdf", "Giấy cam đoan về việc sinh", "birth_support", 1, ("GIẤY CAM ĐOAN VỀ VIỆC SINH", "Lý do không có Giấy chứng sinh")),
-    FormSourceSpec("05_van_ban_nguoi_lam_chung_xac_nhan_viec_sinh.pdf", "BIRTH_WITNESS_SUPPORT_2026", "BIRTH_WITNESS_SUPPORT", "reference_support", "form_pdf", "Văn bản người làm chứng xác nhận việc sinh", "birth_support", 1, ("VĂN BẢN NGƯỜI LÀM CHỨNG", "Nội dung, hoàn cảnh")),
-    FormSourceSpec("06_van_ban_dong_y_dang_ky_thuong_tru.pdf", "RESIDENCE_CONSENT_SUPPORT_2026", "RESIDENCE_CONSENT_SUPPORT", "reference_support", "form_pdf", "Văn bản đồng ý đăng ký thường trú", "residence_consent", 1, ("VĂN BẢN ĐỒNG Ý ĐĂNG KÝ THƯỜNG TRÚ", "Tư cách xác nhận")),
-    FormSourceSpec("07_ban_cam_ket_an_toan_cong_trinh_lien_ke.pdf", "ADJACENT_SAFETY_SUPPORT_2026", "ADJACENT_SAFETY_SUPPORT", "reference_support", "form_pdf", "Bản cam kết an toàn công trình liền kề", "construction_support", 1, ("BẢN CAM KẾT", "công trình liền kề")),
-    FormSourceSpec("bo_bieu_mau_3_thu_tuc_2026.pdf", "FORM_BUNDLE_2026", None, "bundle", "bundle_pdf", "Bộ biểu mẫu 3 thủ tục", "bundle", 14, ("DANH MỤC BIỂU MẪU", "TỜ KHAI ĐĂNG KÝ KHAI SINH", "TỜ KHAI THAY ĐỔI THÔNG TIN CƯ TRÚ")),
-)
-
-CONDITIONAL_DOCUMENT_DRAFTS = (
-    ("BIRTH_REGISTRATION_FORM", "BIRTH_DECLARATION_SUPPORT", "BIRTH_WITHOUT_CERTIFICATE_AND_WITNESS"),
-    ("BIRTH_REGISTRATION_FORM", "BIRTH_WITNESS_SUPPORT", "BIRTH_WITHOUT_CERTIFICATE_WITH_WITNESS"),
-    ("PERMANENT_RESIDENCE_CT01_FORM", "RESIDENCE_CONSENT_SUPPORT", "CONSENT_NOT_RECORDED_ON_CT01_OR_DIGITAL"),
-    ("CONSTRUCTION_PERMIT_REQUEST_FORM", "ADJACENT_SAFETY_SUPPORT", "ADJACENT_SAFETY_REQUIRES_COMMITMENT"),
 )
 
 FIELD_LABELS = {
@@ -220,7 +207,7 @@ def inspect_form_corpus(directory: Path) -> list[FormInspection]:
 def build_form_draft(spec: FormSourceSpec, inspection: FormInspection) -> dict:
     if not inspection.valid:
         raise ValueError("form_requires_technical_review")
-    if spec.form_role not in {"primary_form", "reference_support"}:
+    if spec.form_role != "primary_form":
         raise ValueError("noncanonical_form_source_cannot_be_published_as_form")
     return {
         "form_code": spec.form_code,
@@ -230,18 +217,6 @@ def build_form_draft(spec: FormSourceSpec, inspection: FormInspection) -> dict:
         "fields": [{"field_code": field_code, "provenance": {"source_key": spec.source_key}} for field_code in spec.field_codes],
         "export_enabled": False,
     }
-
-
-def conditional_document_drafts() -> list[dict]:
-    return [
-        {
-            "primary_form_code": primary_form_code,
-            "support_form_code": support_form_code,
-            "condition_code": condition_code,
-            "status": "draft",
-        }
-        for primary_form_code, support_form_code, condition_code in CONDITIONAL_DOCUMENT_DRAFTS
-    ]
 
 
 def _storage_path(data_dir: Path, path: Path) -> str:
@@ -341,12 +316,6 @@ async def import_form_corpus(
                         VALUES (:form_version_id, :section_id, :field_code, :label_vi, 'text', 1, CAST(:provenance AS jsonb))
                     """), {"form_version_id": form_version_id, "section_id": section_id, "field_code": field_code, "label_vi": FIELD_LABELS[field_code], "provenance": json.dumps({"source_key": spec.source_key, "page_no": 1})})
             results.append({"source_key": spec.source_key, "version_no": version_no, "status": "in_review"})
-        for draft in conditional_document_drafts():
-            await connection.execute(text("""
-                INSERT INTO form_conditional_document (primary_form_code, support_form_code, condition_code, status, metadata)
-                VALUES (:primary_form_code, :support_form_code, :condition_code, 'draft', CAST(:metadata AS jsonb))
-                ON CONFLICT (primary_form_code, support_form_code, condition_code) DO NOTHING
-            """), {**draft, "metadata": json.dumps({"requires_approved_legal_rule": True})})
     return results
 
 

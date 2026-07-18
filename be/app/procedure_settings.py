@@ -33,6 +33,7 @@ class SelectionFilter:
 _DATA_TYPES = {"string", "date", "enum", "number", "table"}
 _SEVERITIES = {"blocking_error", "warning", "suggestion", "unable_to_verify"}
 _ALIGNS = {"left", "right", "center"}
+_OVERFLOW_POLICIES = {"reject", "wrap"}
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,9 @@ class FormFieldExport:
     align: str
     format: str
     overflow_policy: str
+    max_lines: int
+    line_height: float
+    min_font_size: float
 
 
 @dataclass(frozen=True)
@@ -199,13 +203,26 @@ def _form_field_export(payload: dict[str, Any], field_code: str) -> FormFieldExp
         raise ValueError(f"form_field_export_invalid:{field_code}")
     try:
         align, overflow_policy = export["align"], export["overflow_policy"]
-        if align not in _ALIGNS or overflow_policy != "reject":
+        max_lines = int(export.get("max_lines", 1))
+        line_height = float(export.get("line_height", export["font_size"]))
+        min_font_size = float(export.get("min_font_size", export["font_size"]))
+        if (
+            align not in _ALIGNS
+            or overflow_policy not in _OVERFLOW_POLICIES
+            or max_lines < 1
+            or line_height <= 0
+            or min_font_size <= 0
+            or min_font_size > float(export["font_size"])
+            or max_lines * line_height > float(export["height"])
+            or (overflow_policy == "reject" and max_lines != 1)
+        ):
             raise ValueError(f"form_field_export_invalid:{field_code}")
         return FormFieldExport(
             page=int(export["page"]), x=float(export["x"]), y=float(export["y"]),
             width=float(export["width"]), height=float(export["height"]),
             font_family=str(export["font_family"]), font_size=float(export["font_size"]),
             align=align, format=str(export["format"]), overflow_policy=overflow_policy,
+            max_lines=max_lines, line_height=line_height, min_font_size=min_font_size,
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError(f"form_field_export_invalid:{field_code}") from exc

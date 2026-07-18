@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   FormSchemaResponse,
+  ApiError,
   ValidationResult,
   exportFormPdf,
   getFormDraft,
@@ -19,6 +20,18 @@ function downloadBlob(blob: Blob, filename: string) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function exportErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof ApiError)) return fallback;
+  const [, reason, fieldCode] = error.detail.split(":");
+  if (reason === "text_exceeds_field_width" && fieldCode) {
+    return `${fallback} Trường ${fieldCode} quá dài cho vùng trên PDF.`;
+  }
+  if (reason === "vietnamese_font_missing") {
+    return `${fallback} Container chưa có font Noto Sans tiếng Việt.`;
+  }
+  return `${fallback} (${error.detail})`;
 }
 
 function FormPicker({ locale, onPick }: { locale: Locale; onPick: (formCode: string) => void }) {
@@ -154,8 +167,8 @@ export function ReviewForm({ activeFormCode, locale, onFormCodeConsumed }: { act
     setError(null);
     try {
       downloadBlob(await exportFormPdf(formCode, validation.validation_id), `${formCode.toLowerCase()}.pdf`);
-    } catch {
-      setError(text.formExportError);
+    } catch (error) {
+      setError(exportErrorMessage(error, text.formExportError));
     } finally {
       setExporting(false);
     }
