@@ -1,5 +1,6 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Citation, bootstrapSession, deleteSession, streamChat } from "./api";
+import { ReviewForm } from "./ReviewForm";
 
 type Message = {
   id: string;
@@ -35,6 +36,8 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [reviewTab, setReviewTab] = useState(false);
+  const [activeFormCode, setActiveFormCode] = useState<string | null>(null);
+  const [formCodePending, setFormCodePending] = useState(false);
   const [externalSearchConsent, setExternalSearchConsent] = useState<boolean | null>(null);
   const [pendingExternalSearchMessage, setPendingExternalSearchMessage] = useState<string | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
@@ -95,6 +98,10 @@ export function App() {
             externalSearchConsentRequired: event.externalSearchConsentRequired,
           } : item));
           if (event.externalSearchConsentRequired) setPendingExternalSearchMessage(message);
+          if (event.formCode) {
+            setActiveFormCode(event.formCode);
+            setFormCodePending(true);
+          }
         }
         if (event.type === "error") {
           setMessages((current) => current.map((item) => item.id === assistantId ? { ...item, content: event.message } : item));
@@ -118,9 +125,13 @@ export function App() {
     await bootstrapSession();
     setMessages([]);
     setReviewTab(false);
+    setActiveFormCode(null);
+    setFormCodePending(false);
     setExternalSearchConsent(null);
     setPendingExternalSearchMessage(null);
   }
+
+  const consumeActiveFormCode = useCallback(() => setFormCodePending(false), []);
 
   return (
     <div className="app-shell">
@@ -162,12 +173,12 @@ export function App() {
         <nav className="tabs" aria-label="Chức năng ICIVI">
           <div className="tabs-rail">
             <button className={!reviewTab ? "active" : ""} onClick={() => setReviewTab(false)}>💬 Trò chuyện &amp; Khai đơn</button>
-            <button className={reviewTab ? "active" : ""} onClick={() => setReviewTab(true)}>📄 Rà soát &amp; Kiểm tra đơn</button>
+            <button className={reviewTab ? "active" : ""} onClick={() => setReviewTab(true)}>📄 Rà soát &amp; Kiểm tra đơn{formCodePending && <span className="tab-badge" aria-label="Có biểu mẫu mới được điền" />}</button>
           </div>
         </nav>
       </div>
 
-      {reviewTab ? <main className="review-placeholder"><span aria-hidden="true">📄</span><h2>Rà soát đơn đang được chuẩn bị</h2><p>Tính năng kiểm tra biểu mẫu và tài liệu chính thức sẽ được bổ sung trong giai đoạn tiếp theo.</p><button onClick={() => setReviewTab(false)}>Quay lại trò chuyện</button></main> : <main className="conversation">
+      {reviewTab ? <main className="review-panel"><ReviewForm activeFormCode={activeFormCode} onFormCodeConsumed={consumeActiveFormCode} /></main> : <main className="conversation">
         {!isChatting ? <section className="welcome"><span className="mascot" aria-hidden="true">✦</span><h2>Xin chào! Tôi là <em>ICIVI</em> 👋</h2><p>Tôi giúp bạn bắt đầu tìm hiểu thủ tục hành chính bằng ngôn ngữ tự nhiên.</p><form className="input-wrap welcome-input" onSubmit={submit}><input aria-label="Nội dung cần hỗ trợ" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Ví dụ: Tôi muốn đăng ký khai sinh cho bé..." /><button aria-label="Gửi yêu cầu" type="submit">➤</button></form><div className="suggestions">{suggestions.map((item, index) => <button className={index === 0 ? "primary" : ""} key={item} onClick={() => void send(item)}>{item}</button>)}</div><p className="privacy">🔒 Nội dung chỉ được dùng trong phiên hiện tại.</p></section> : <><button className="back" onClick={() => void reset()}>← Bắt đầu phiên mới</button><section className="stream" ref={streamRef} data-testid="message-stream" aria-live="polite">{messages.map((message) => <article key={message.id} className={`message ${message.role}`}><div className="speaker">{message.role === "assistant" ? "✦ Trợ lý ICIVI" : "Bạn"}</div><p>{message.content || ""}</p>{message.confidenceBand && <p className={`confidence ${message.confidenceBand}`}>Độ tin cậy: {message.confidenceBand === "high" ? "cao" : message.confidenceBand === "medium" ? "trung bình" : "thấp"}</p>}{message.citations && message.citations.length > 0 && <ol className="citations" aria-label="Nguồn tham chiếu">{message.citations.map((citation) => <li key={citation.citation_id}><strong>[{citation.citation_id}]</strong> {citation.source_status === "snapshot" ? "Snapshot dữ liệu: " : "Đã kiểm chứng: "}{citation.source_url ? <a href={citation.source_url} rel="noreferrer" target="_blank">{citation.source_title}</a> : citation.source_title}{citation.procedure_code ? ` (mã ${citation.procedure_code})` : ""}{citation.document_number ? ` — ${citation.document_number}` : ""}{citation.section_reference ? ` — ${citation.section_reference}` : ""}{citation.crawled_at ? ` — crawl ${new Date(citation.crawled_at).toLocaleDateString("vi-VN")}` : ""}</li>)}</ol>}{message.externalSearchConsentRequired && pendingExternalSearchMessage && <button onClick={() => { setExternalSearchConsent(true); setPendingExternalSearchMessage(null); void send(pendingExternalSearchMessage); }}>Đồng ý tìm kiếm bên ngoài</button>}{message.quickReplies && message.quickReplies.length > 0 && <div className="quick-replies">{message.quickReplies.map((reply) => <button key={reply} onClick={() => void send(reply)}>{reply}</button>)}</div>}</article>)}{streaming && <div className="typing" aria-label="ICIVI đang trả lời"><i /><i /><i /></div>}</section><form className="input-bar" onSubmit={submit}><div className="input-wrap"><input aria-label="Nhập câu hỏi" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Nhập câu trả lời hoặc đặt câu hỏi..." disabled={streaming} /><button aria-label="Gửi tin nhắn" type="submit" disabled={streaming}>➤</button></div></form></>}
       </main>}
     </div>

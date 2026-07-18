@@ -8,8 +8,13 @@ vi.mock("./api", () => ({
   deleteSession: vi.fn().mockResolvedValue(undefined),
   streamChat: vi.fn().mockImplementation(async (_message, _language, _searchConsent, onEvent) => {
     onEvent({ type: "message.delta", text: "Phản hồi thử nghiệm" });
-    onEvent({ type: "message.complete", intent: "general", quickReplies: ["Hỏi thêm"], citations: [{ citation_id: "CIT-1", source_code: "LAW", source_title: "Luật Hộ tịch", document_number: "60/2014/QH13", section_reference: "Điều 16", source_url: "https://example.test/source", effective_from: "2016-01-01", jurisdiction_scope: "national", administrative_area_code: null, quote_preview: "Trích dẫn", source_type: "government" }], answerStrategy: "high", confidenceBand: "high", confidenceReasons: [], externalSearchUsed: false, externalSearchConsentRequired: false });
+    onEvent({ type: "message.complete", intent: "general", quickReplies: ["Hỏi thêm"], citations: [{ citation_id: "CIT-1", source_code: "LAW", source_title: "Luật Hộ tịch", document_number: "60/2014/QH13", section_reference: "Điều 16", source_url: "https://example.test/source", effective_from: "2016-01-01", jurisdiction_scope: "national", administrative_area_code: null, quote_preview: "Trích dẫn", source_type: "government" }], answerStrategy: "high", confidenceBand: "high", confidenceReasons: [], externalSearchUsed: false, externalSearchConsentRequired: false, formCode: null });
   }),
+  getFormSchema: vi.fn().mockResolvedValue({ form_code: "BIRTH_REGISTRATION_FORM", title_vi: "Tờ khai đăng ký khai sinh", groups: [], fields: [] }),
+  getFormDraft: vi.fn().mockResolvedValue({ form_code: "BIRTH_REGISTRATION_FORM", fields: {}, updated_at: null }),
+  updateFormDraft: vi.fn().mockResolvedValue({ form_code: "BIRTH_REGISTRATION_FORM", fields: {}, updated_at: null }),
+  validateForm: vi.fn(),
+  exportFormPdf: vi.fn(),
 }));
 
 describe("App", () => {
@@ -41,10 +46,10 @@ describe("App", () => {
     await waitFor(() => expect(stream.scrollTop).toBe(720));
   });
 
-  it("shows the review placeholder", () => {
+  it("shows the form picker when no form is active yet", async () => {
     render(<App />);
     fireEvent.click(screen.getByText(/Rà soát & Kiểm tra đơn/));
-    expect(screen.getByText("Rà soát đơn đang được chuẩn bị")).toBeInTheDocument();
+    expect(await screen.findByText("Chọn mẫu đơn để rà soát")).toBeInTheDocument();
   });
 
   it("updates the selected language and closes the menu", () => {
