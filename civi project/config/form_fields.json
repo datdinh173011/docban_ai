@@ -1,0 +1,136 @@
+{
+  "gpxd": {
+    "match_keywords": ["don2", "gpxd", "giấy phép xây dựng"],
+    "description": "Đơn xin cấp Giấy phép Xây dựng nhà ở riêng lẻ",
+    "fields": [
+      {
+        "key": "fullname",
+        "label": "Họ và tên chủ đầu tư (chủ hộ)",
+        "question": "Họ và tên đầy đủ của chủ đầu tư (chủ hộ) là gì?"
+      },
+      {
+        "key": "cccd",
+        "label": "Số định danh cá nhân (CCCD)",
+        "question": "Số định danh cá nhân (CCCD) của bạn là gì?"
+      },
+      {
+        "key": "phone",
+        "label": "Số điện thoại liên hệ",
+        "question": "Số điện thoại liên hệ của bạn là gì?"
+      },
+      {
+        "key": "address",
+        "label": "Địa chỉ liên hệ",
+        "question": "Địa chỉ thường trú/liên hệ của bạn?"
+      },
+      {
+        "key": "lot_number",
+        "label": "Số thửa đất / Lô đất số",
+        "question": "Thửa đất / Lô đất số bao nhiêu?"
+      },
+      {
+        "key": "land_area",
+        "label": "Diện tích thửa đất (m²)",
+        "question": "Diện tích thửa đất rộng bao nhiêu m²?"
+      },
+      {
+        "key": "construction_area",
+        "label": "Diện tích xây dựng (m²)",
+        "question": "Diện tích xây dựng dự kiến là bao nhiêu m²?"
+      },
+      {
+        "key": "floors",
+        "label": "Số tầng",
+        "question": "Số tầng dự kiến xây dựng?"
+      },
+      {
+        "key": "height",
+        "label": "Chiều cao công trình (m)",
+        "question": "Chiều cao công trình dự kiến là bao nhiêu mét?"
+      }
+    ],
+    "replacements": {
+      "Tên chủ đầu tư (Chủ hộ):...": "Tên chủ đầu tư (Chủ hộ): {fullname}",
+      "Số định danh cá nhân/Mã số doanh nghiệp:..": "Số định danh cá nhân/Mã số doanh nghiệp: {cccd}",
+      "Số điện thoại: ...............................................................................................": "Số điện thoại: {phone}",
+      "Lô đất số:..........................................Diện tích ............m2.": "Lô đất số: {lot_number} | Diện tích: {land_area} m²",
+      "Tại số nhà: ............................... đường/phố ...................................................": "Tại số nhà/địa chỉ: {address}",
+      "phường/xã: .......................................quận/huyện:.........................................": "",
+      "tỉnh, thành phố: ..............................................................................................": "",
+      "Diện tích xây dựng tầng 1 (tầng trệt): .................. m2.": "Diện tích xây dựng: {construction_area} m²",
+      "Số tầng: ................... (trong đó có cả tầng lửng, tầng áp mái, tầng kỹ thuật)": "Số tầng: {floors}",
+      "Chiều cao công trình: ................... m (trong đó chiều cao các tầng hầm, tầng lửng...) :": "Chiều cao công trình: {height} m",
+      "Địa chỉ liên hệ: …; Số điện thoại: …; Email: …": "Địa chỉ liên hệ: {address} | SĐT: {phone}"
+    }
+  },
+  "land_change": {
+    "match_keywords": ["18_73_2026", "biến động"],
+    "description": "Đơn đăng ký biến động đất đai (Mẫu số 18)",
+    "fields": [
+      {
+        "key": "fullname",
+        "label": "Tên người sử dụng đất",
+        "question": "Họ và tên người sử dụng đất / chủ sở hữu?"
+      },
+      {
+        "key": "cccd",
+        "label": "Giấy tờ nhân thân (CCCD)",
+        "question": "Số CCCD/định danh cá nhân?"
+      },
+      {
+        "key": "address",
+        "label": "Địa chỉ thường trú",
+        "question": "Địa chỉ của người sử dụng đất?"
+      },
+      {
+        "key": "phone",
+        "label": "Số điện thoại liên hệ",
+        "question": "Số điện thoại liên hệ?"
+      },
+      {
+        "key": "biendong",
+        "label": "Nội dung biến động cần đăng ký",
+        "question": "Nội dung biến động cần đăng ký là gì? (ví dụ: Chuyển nhượng quyền sử dụng đất)"
+      }
+    ],
+    "replacements": {
+      "- Tên(2):": "- Tên: {fullname}",
+      "- Giấy tờ nhân thân/pháp nhân(3):": "- Giấy tờ nhân thân/pháp nhân: {cccd}",
+      "- Địa chỉ(4):": "- Địa chỉ: {address}",
+      "- Điện thoại liên hệ (nếu có):": "- Điện thoại liên hệ: {phone}",
+      "II. Nội dung biến động(5):": "II. Nội dung biến động: {biendong}"
+    }
+  },
+  "generic": {
+    "match_keywords": [],
+    "description": "Biểu mẫu chung (dùng khi không khớp loại cụ thể)",
+    "fields": [
+      {
+        "key": "fullname",
+        "label": "Họ và tên người khai",
+        "question": "Họ và tên đầy đủ của bạn?"
+      },
+      {
+        "key": "cccd",
+        "label": "Số CCCD / CMND",
+        "question": "Số định danh cá nhân (CCCD) của bạn?"
+      },
+      {
+        "key": "address",
+        "label": "Địa chỉ liên hệ",
+        "question": "Địa chỉ liên hệ của bạn?"
+      },
+      {
+        "key": "phone",
+        "label": "Số điện thoại",
+        "question": "Số điện thoại liên hệ?"
+      }
+    ],
+    "replacements": {
+      "Họ và tên": "{fullname}",
+      "CCCD": "{cccd}",
+      "Địa chỉ": "{address}",
+      "Số điện thoại": "{phone}"
+    }
+  }
+}

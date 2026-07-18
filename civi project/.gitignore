@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+build/
+dist/
+*.egg-info/
+
+# Databases & Data
+chroma_db/
+output/
+
+# API keys & Configuration
+.env
+config/conversation_prompt.txt.bak
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Temporary / Scratch scripts
+scratch/
+test_*.py
+*temp*
+
+# Raw Crawled Data (Ignore raw PDFs, but track Word templates)
+dichvucong_xay_dung_crawled_2026-07-17/*
+!dichvucong_xay_dung_crawled_2026-07-17/mau_don_to_khai/
+

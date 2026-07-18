@@ -1,0 +1,622 @@
+{
+  "Don2.docx": {
+    "title": "ĐƠN ĐỀ NGHỊ CẤP GIẤY PHÉP XÂY DỰNG",
+    "fields": [
+      {
+        "field_label": "Tên chủ đầu tư (Chủ hộ)",
+        "question": "Bạn là ai?",
+        "key": "ten_chu_dau_tu"
+      },
+      {
+        "field_label": "Người đại diện",
+        "question": "Ai là người đại diện?",
+        "key": "nguoi_dai_dien"
+      },
+      {
+        "field_label": "Số điện thoại",
+        "question": "Số điện thoại của bạn là gì?",
+        "key": "so_dien_thoai"
+      },
+      {
+        "field_label": "Lô đất số",
+        "question": "Số lô đất của bạn là bao nhiêu?",
+        "key": "lo_dat_so"
+      },
+      {
+        "field_label": "Tại số nhà",
+        "question": "Số nhà của bạn là bao nhiêu?",
+        "key": "so_nha"
+      },
+      {
+        "field_label": "Phường/xã",
+        "question": "Bạn sống ở phường/xã nào?",
+        "key": "phuong_xa"
+      },
+      {
+        "field_label": "Tỉnh, thành phố",
+        "question": "Bạn sống ở tỉnh/thành phố nào?",
+        "key": "tinh_thanh_pho"
+      },
+      {
+        "field_label": "Tên tổ chức/cá nhân",
+        "question": "Tên tổ chức/cá nhân của bạn là gì?",
+        "key": "ten_to_chuc_ca_nhan"
+      },
+      {
+        "field_label": "Loại công trình",
+        "question": "Loại công trình của bạn là gì?",
+        "key": "loai_cong_trinh"
+      },
+      {
+        "field_label": "Diện tích xây dựng",
+        "question": "Diện tích xây dựng của công trình là bao nhiêu?",
+        "key": "dien_tich_xay_dung"
+      },
+      {
+        "field_label": "Cốt xây dựng",
+        "question": "Cốt xây dựng của công trình là bao nhiêu?",
+        "key": "cot_xay_dung"
+      },
+      {
+        "field_label": "Khoảng lùi (nếu có)",
+        "question": "Khoảng lùi của công trình là bao nhiêu (nếu có)?",
+        "key": "khoang_lui"
+      },
+      {
+        "field_label": "Chiều cao công trình",
+        "question": "Chiều cao của công trình là bao nhiêu?",
+        "key": "chieu_cao_cong_trinh"
+      },
+      {
+        "field_label": "Số tầng",
+        "question": "Số tầng của công trình là bao nhiêu?",
+        "key": "so_tang"
+      },
+      {
+        "field_label": "Tổng chiều dài công trình",
+        "question": "Tổng chiều dài của công trình là bao nhiêu?",
+        "key": "tong_chieu_dai_cong_trinh"
+      },
+      {
+        "field_label": "Cốt xây dựng",
+        "question": "Cốt xây dựng của công trình là bao nhiêu?",
+        "key": "cot_xay_dung_2"
+      },
+      {
+        "field_label": "Chiều cao tĩnh không của tuyến",
+        "question": "Chiều cao tĩnh không của tuyến là bao nhiêu?",
+        "key": "chieu_cao_tinh_khong"
+      },
+      {
+        "field_label": "Độ sâu công trình",
+        "question": "Độ sâu của công trình là bao nhiêu?",
+        "key": "do_sau_cong_trinh"
+      },
+      {
+        "field_label": "Cốt xây dựng",
+        "question": "Cốt xây dựng của công trình là bao nhiêu?",
+        "key": "cot_xay_dung_3"
+      },
+      {
+        "field_label": "Cấp công trình",
+        "question": "Cấp của công trình là gì?",
+        "key": "cap_cong_trinh"
+      },
+      {
+        "field_label": "Diện tích xây dựng tầng 1 (tầng trệt)",
+        "question": "Diện tích xây dựng của tầng 1 (tầng trệt) là bao nhiêu?",
+        "key": "dien_tich_xay_dung_tang_1"
+      },
+      {
+        "field_label": "Tổng diện tích sàn",
+        "question": "Tổng diện tích sàn của công trình là bao nhiêu?",
+        "key": "tong_dien_tich_san"
+      },
+      {
+        "field_label": "Tên dự án",
+        "question": "Tên của dự án là gì?",
+        "key": "ten_du_an"
+      },
+      {
+        "field_label": "Đã được",
+        "question": "Công trình đã được gì?",
+        "key": "da_duoc"
+      },
+      {
+        "field_label": "Các thông tin chủ yếu của công trình",
+        "question": "Các thông tin chủ yếu của công trình là gì?",
+        "key": "thong_tin_chu_yeu_cong_trinh"
+      },
+      {
+        "field_label": "Tại",
+        "question": "Công trình được xây dựng tại đâu?",
+        "key": "tai"
+      },
+      {
+        "field_label": "Phường (xã)",
+        "question": "Phường (xã) của công trình là gì?",
+        "key": "phuong_xa_2"
+      },
+      {
+        "field_label": "Dự kiến thời gian hoàn thành công trình",
+        "question": "Dự kiến thời gian hoàn thành công trình là bao lâu?",
+        "key": "du_kien_thoi_gian_hoan_thanh"
+      }
+    ]
+  },
+  "DDNCapGPXD (1).docx": {
+    "title": "ĐƠN ĐỀ NGHỊ CẤP GIẤY PHÉP XÂY DỰNG",
+    "fields": [
+      {
+        "field_label": "Tên chủ đầu tư (Chủ hộ)",
+        "question": "Bạn hãy nhập tên chủ đầu tư hoặc chủ hộ",
+        "key": "chu_dau_tu"
+      },
+      {
+        "field_label": "Người đại diện",
+        "question": "Bạn hãy nhập tên người đại diện",
+        "key": "nguoi_dai_dien"
+      },
+      {
+        "field_label": "Số điện thoại",
+        "question": "Bạn hãy nhập số điện thoại liên lạc",
+        "key": "so_dien_thoai"
+      },
+      {
+        "field_label": "Lô đất số",
+        "question": "Bạn hãy nhập số lô đất",
+        "key": "lo_dat_so"
+      },
+      {
+        "field_label": "Tại số nhà",
+        "question": "Bạn hãy nhập số nhà",
+        "key": "so_nha"
+      },
+      {
+        "field_label": "Phường/xã",
+        "question": "Bạn hãy nhập tên phường hoặc xã",
+        "key": "phuong_xa"
+      },
+      {
+        "field_label": "Tỉnh, thành phố",
+        "question": "Bạn hãy nhập tên tỉnh hoặc thành phố",
+        "key": "tinh_thanh_pho"
+      },
+      {
+        "field_label": "Tên tổ chức/cá nhân",
+        "question": "Bạn hãy nhập tên tổ chức hoặc cá nhân",
+        "key": "ten_to_chuc_ca_nhan"
+      },
+      {
+        "field_label": "Loại công trình",
+        "question": "Bạn hãy chọn loại công trình",
+        "key": "loai_cong_trinh"
+      },
+      {
+        "field_label": "Diện tích xây dựng",
+        "question": "Bạn hãy nhập diện tích xây dựng",
+        "key": "dien_tich_xay_dung"
+      },
+      {
+        "field_label": "Cốt xây dựng",
+        "question": "Bạn hãy nhập cốt xây dựng",
+        "key": "cot_xay_dung"
+      },
+      {
+        "field_label": "Khoảng lùi (nếu có)",
+        "question": "Bạn hãy nhập khoảng lùi nếu có",
+        "key": "khoang_lui"
+      },
+      {
+        "field_label": "Chiều cao công trình",
+        "question": "Bạn hãy nhập chiều cao công trình",
+        "key": "chieu_cao_cong_trinh"
+      },
+      {
+        "field_label": "Số tầng",
+        "question": "Bạn hãy nhập số tầng",
+        "key": "so_tang"
+      },
+      {
+        "field_label": "Dự kiến thời gian hoàn thành công trình",
+        "question": "Bạn hãy nhập dự kiến thời gian hoàn thành công trình",
+        "key": "du_kien_thoi_gian_hoan_thanh"
+      }
+    ]
+  },
+  "DDNCapGPXD.docx": {
+    "title": "ĐƠN ĐỀ NGHỊ CẤP GIẤY PHÉP XÂY DỰNG",
+    "fields": [
+      {
+        "field_label": "Tên chủ đầu tư (Chủ hộ)",
+        "question": "Bạn hãy nhập tên chủ đầu tư hoặc chủ hộ",
+        "key": "chu_dau_tu"
+      },
+      {
+        "field_label": "Người đại diện",
+        "question": "Bạn hãy nhập tên người đại diện",
+        "key": "nguoi_dai_dien"
+      },
+      {
+        "field_label": "Số điện thoại",
+        "question": "Bạn hãy nhập số điện thoại liên lạc",
+        "key": "so_dien_thoai"
+      },
+      {
+        "field_label": "Lô đất số",
+        "question": "Bạn hãy nhập số lô đất",
+        "key": "lo_dat_so"
+      },
+      {
+        "field_label": "Tại số nhà",
+        "question": "Bạn hãy nhập số nhà",
+        "key": "so_nha"
+      },
+      {
+        "field_label": "Phường/xã",
+        "question": "Bạn hãy nhập tên phường hoặc xã",
+        "key": "phuong_xa"
+      },
+      {
+        "field_label": "Tỉnh, thành phố",
+        "question": "Bạn hãy nhập tên tỉnh hoặc thành phố",
+        "key": "tinh_thanh_pho"
+      },
+      {
+        "field_label": "Tên tổ chức/cá nhân",
+        "question": "Bạn hãy nhập tên tổ chức hoặc cá nhân",
+        "key": "ten_to_chuc_ca_nhan"
+      },
+      {
+        "field_label": "Loại công trình",
+        "question": "Bạn hãy chọn loại công trình",
+        "key": "loai_cong_trinh"
+      },
+      {
+        "field_label": "Diện tích xây dựng",
+        "question": "Bạn hãy nhập diện tích xây dựng",
+        "key": "dien_tich_xay_dung"
+      },
+      {
+        "field_label": "Cốt xây dựng",
+        "question": "Bạn hãy nhập cốt xây dựng",
+        "key": "cot_xay_dung"
+      },
+      {
+        "field_label": "Khoảng lùi (nếu có)",
+        "question": "Bạn hãy nhập khoảng lùi nếu có",
+        "key": "khoang_lui"
+      },
+      {
+        "field_label": "Chiều cao công trình",
+        "question": "Bạn hãy nhập chiều cao công trình",
+        "key": "chieu_cao_cong_trinh"
+      },
+      {
+        "field_label": "Số tầng",
+        "question": "Bạn hãy nhập số tầng",
+        "key": "so_tang"
+      },
+      {
+        "field_label": "Dự kiến thời gian hoàn thành công trình",
+        "question": "Bạn hãy nhập dự kiến thời gian hoàn thành công trình",
+        "key": "du_kien_thoi_gian_hoan_thanh"
+      },
+      {
+        "field_label": "Ngày",
+        "question": "Bạn hãy nhập ngày",
+        "key": "ngay"
+      },
+      {
+        "field_label": "CCCD",
+        "question": "Bạn hãy nhập số chứng minh nhân dân hoặc căn cước công dân",
+        "key": "cccd"
+      },
+      {
+        "field_label": "Địa chỉ",
+        "question": "Bạn hãy nhập địa chỉ",
+        "key": "dia_chi"
+      },
+      {
+        "field_label": "Số vào sổ",
+        "question": "Bạn hãy nhập số vào sổ",
+        "key": "so_vao_so"
+      },
+      {
+        "field_label": "Ngày cấp",
+        "question": "Bạn hãy nhập ngày cấp",
+        "key": "ngay_cap"
+      },
+      {
+        "field_label": "Số phát hành",
+        "question": "Bạn hãy nhập số phát hành",
+        "key": "so_phat_hanh"
+      },
+      {
+        "field_label": "Nội dung biến động",
+        "question": "Bạn hãy nhập nội dung biến động",
+        "key": "noi_dung_bien_dong"
+      },
+      {
+        "field_label": "Thông tin thửa đất",
+        "question": "Bạn hãy nhập thông tin thửa đất",
+        "key": "thong_tin_thua_dat"
+      },
+      {
+        "field_label": "Nội dung đề nghị khác",
+        "question": "Bạn hãy nhập nội dung đề nghị khác",
+        "key": "noi_dung_de_nghi_khac"
+      }
+    ]
+  },
+  "Mẫu số 29.docx": {
+    "title": "Mẫu số 29. Đơn đăng ký biến động đất đai, tài sản gắn liền với đất",
+    "fields": [
+      {
+        "field_label": "Tên",
+        "question": "Bạn hãy nhập tên của mình",
+        "key": "full_name"
+      },
+      {
+        "field_label": "Giấy tờ nhân thân/pháp nhân",
+        "question": "Bạn hãy nhập loại giấy tờ nhân thân hoặc pháp nhân của mình (CCCD, CMND, Hộ chiếu, Giấy chứng nhận đăng ký doanh nghiệp,...)",
+        "key": "identity_document"
+      },
+      {
+        "field_label": "Địa chỉ",
+        "question": "Bạn hãy nhập địa chỉ thường trú hoặc tạm trú của mình",
+        "key": "address"
+      },
+      {
+        "field_label": "Điện thoại liên hệ (nếu có)",
+        "question": "Bạn hãy nhập số điện thoại liên hệ của mình (nếu có)",
+        "key": "phone_number"
+      },
+      {
+        "field_label": "Số vào sổ cấp Giấy chứng nhận",
+        "question": "Bạn hãy nhập số vào sổ cấp Giấy chứng nhận đã cấp",
+        "key": "certificate_book_number"
+      },
+      {
+        "field_label": "Số phát hành Giấy chứng nhận (Số seri)",
+        "question": "Bạn hãy nhập số phát hành (số seri) của Giấy chứng nhận đã cấp",
+        "key": "certificate_serial_number"
+      },
+      {
+        "field_label": "Ngày cấp Giấy chứng nhận",
+        "question": "Bạn hãy nhập ngày cấp Giấy chứng nhận đã cấp",
+        "key": "certificate_issue_date"
+      },
+      {
+        "field_label": "Nội dung biến động",
+        "question": "Bạn hãy mô tả nội dung biến động đất đai, tài sản gắn liền với đất",
+        "key": "change_content"
+      }
+    ]
+  },
+  "Mau so 18_73_2026_QD-UBND.docx": {
+    "title": "Mẫu số 18. Đơn đăng ký biến động đất đai, tài sản gắn liền với đất",
+    "fields": [
+      {
+        "field_label": "Họ và tên",
+        "question": "Bạn hãy nhập họ và tên của mình",
+        "key": "full_name"
+      },
+      {
+        "field_label": "Số điện thoại",
+        "question": "Bạn hãy nhập số điện thoại liên hệ của mình",
+        "key": "phone_number"
+      },
+      {
+        "field_label": "Số CCCD/CMND",
+        "question": "Bạn hãy nhập số thẻ căn cước công dân hoặc chứng minh nhân dân của mình",
+        "key": "id_number"
+      },
+      {
+        "field_label": "Địa chỉ",
+        "question": "Bạn hãy nhập địa chỉ thường trú của mình",
+        "key": "address"
+      },
+      {
+        "field_label": "Số vào sổ",
+        "question": "Bạn hãy nhập số vào sổ của giấy chứng nhận đã cấp",
+        "key": "certificate_book_number"
+      },
+      {
+        "field_label": "Ngày cấp",
+        "question": "Bạn hãy nhập ngày cấp giấy chứng nhận đã cấp",
+        "key": "certificate_issue_date"
+      },
+      {
+        "field_label": "Số phát hành",
+        "question": "Bạn hãy nhập số phát hành của giấy chứng nhận đã cấp",
+        "key": "certificate_serial_number"
+      },
+      {
+        "field_label": "Nội dung biến động",
+        "question": "Bạn hãy nhập nội dung biến động đất đai, tài sản gắn liền với đất",
+        "key": "change_content"
+      },
+      {
+        "field_label": "Số thửa đất",
+        "question": "Bạn hãy nhập số thửa đất",
+        "key": "land_parcel_number"
+      },
+      {
+        "field_label": "Tờ bản đồ",
+        "question": "Bạn hãy nhập tờ bản đồ của thửa đất",
+        "key": "map_sheet"
+      },
+      {
+        "field_label": "Địa chỉ thửa đất",
+        "question": "Bạn hãy nhập địa chỉ của thửa đất",
+        "key": "land_address"
+      },
+      {
+        "field_label": "Nội dung đề nghị khác",
+        "question": "Bạn hãy nhập các nội dung đề nghị khác (nếu có)",
+        "key": "other_requests"
+      }
+    ]
+  },
+  "Mẫu số_ 18.docx": {
+    "title": "Mẫu số 18. Đơn đăng ký biến động đất đai, tài sản gắn liền với đất",
+    "fields": [
+      {
+        "field_label": "Tên",
+        "question": "Họ và tên của bạn là gì?",
+        "key": "full_name"
+      },
+      {
+        "field_label": "Số điện thoại",
+        "question": "Số điện thoại liên hệ của bạn là gì?",
+        "key": "phone_number"
+      },
+      {
+        "field_label": "CCCD",
+        "question": "Số thẻ căn cước công dân của bạn là gì?",
+        "key": "citizen_id"
+      },
+      {
+        "field_label": "Địa chỉ",
+        "question": "Địa chỉ thường trú của bạn là gì?",
+        "key": "address"
+      },
+      {
+        "field_label": "Số vào sổ",
+        "question": "Số vào sổ của giấy chứng nhận đã cấp là gì?",
+        "key": "certificate_book_number"
+      },
+      {
+        "field_label": "Ngày cấp",
+        "question": "Ngày cấp giấy chứng nhận là gì?",
+        "key": "issue_date"
+      },
+      {
+        "field_label": "Số phát hành",
+        "question": "Số phát hành của giấy chứng nhận là gì?",
+        "key": "certificate_number"
+      },
+      {
+        "field_label": "Nội dung biến động",
+        "question": "Nội dung biến động đất đai, tài sản gắn liền với đất là gì?",
+        "key": "change_content"
+      },
+      {
+        "field_label": "Thông tin thửa đất",
+        "question": "Thông tin về thửa đất (số thửa, số tờ bản đồ, diện tích...) là gì?",
+        "key": "land_info"
+      },
+      {
+        "field_label": "Nội dung đề nghị khác",
+        "question": "Bạn có nội dung đề nghị khác không? Nếu có, hãy mô tả chi tiết.",
+        "key": "other_requests"
+      }
+    ]
+  },
+  "Mẫu số 28. đơn biến động đất đai.docx": {
+    "title": "Mẫu số 28.  Đơn đăng ký biến động đất đai, tài sản gắn liền với đất",
+    "fields": [
+      {
+        "field_label": "Họ và tên",
+        "question": "Bạn hãy nhập họ và tên của mình",
+        "key": "full_name"
+      },
+      {
+        "field_label": "Số điện thoại",
+        "question": "Bạn hãy nhập số điện thoại liên hệ của mình",
+        "key": "phone_number"
+      },
+      {
+        "field_label": "Số CCCD/CMND/Hộ chiếu",
+        "question": "Bạn hãy nhập số chứng minh nhân dân hoặc căn cước công dân hoặc hộ chiếu của mình",
+        "key": "id_number"
+      },
+      {
+        "field_label": "Địa chỉ",
+        "question": "Bạn hãy nhập địa chỉ thường trú của mình",
+        "key": "address"
+      },
+      {
+        "field_label": "Số vào sổ",
+        "question": "Bạn hãy nhập số vào sổ của giấy chứng nhận đã cấp",
+        "key": "book_number"
+      },
+      {
+        "field_label": "Ngày cấp",
+        "question": "Bạn hãy nhập ngày cấp giấy chứng nhận đã cấp",
+        "key": "issue_date"
+      },
+      {
+        "field_label": "Số phát hành",
+        "question": "Bạn hãy nhập số phát hành của giấy chứng nhận đã cấp",
+        "key": "issue_number"
+      },
+      {
+        "field_label": "Nội dung biến động",
+        "question": "Bạn hãy nhập nội dung biến động đất đai, tài sản gắn liền với đất",
+        "key": "change_content"
+      },
+      {
+        "field_label": "Số thửa đất",
+        "question": "Bạn hãy nhập số thửa đất",
+        "key": "land_plot_number"
+      },
+      {
+        "field_label": "Tờ bản đồ",
+        "question": "Bạn hãy nhập tờ bản đồ của thửa đất",
+        "key": "map_sheet"
+      },
+      {
+        "field_label": "Địa chỉ thửa đất",
+        "question": "Bạn hãy nhập địa chỉ của thửa đất",
+        "key": "land_address"
+      },
+      {
+        "field_label": "Nội dung đề nghị khác",
+        "question": "Bạn hãy nhập các nội dung đề nghị khác (nếu có)",
+        "key": "other_request"
+      }
+    ]
+  },
+  "mẫu số 28.docx": {
+    "title": "Mẫu số 28. Bản vẽ tách thửa đất, hợp thửa đất",
+    "fields": [
+      {
+        "field_label": "Thửa số",
+        "question": "Số thửa đất của bạn là gì?",
+        "key": "thua_so"
+      },
+      {
+        "field_label": "Tên người sử dụng đất",
+        "question": "Tên của người sử dụng đất là gì?",
+        "key": "ten_nguoi_su_dung_dat"
+      },
+      {
+        "field_label": "Từ điểm 1’đến điểm 5’",
+        "question": "Khoảng cách từ điểm 1’ đến điểm 5’ là bao nhiêu?",
+        "key": "khoang_cach_1_5"
+      },
+      {
+        "field_label": "Từ điểm 5’ đến điểm 6’",
+        "question": "Khoảng cách từ điểm 5’ đến điểm 6’ là bao nhiêu?",
+        "key": "khoang_cach_5_6"
+      },
+      {
+        "field_label": "Từ điểm 6’ đến điểm 1’",
+        "question": "Khoảng cách từ điểm 6’ đến điểm 1’ là bao nhiêu?",
+        "key": "khoang_cach_6_1"
+      },
+      {
+        "field_label": "Thửa tách ra dự kiến số 2",
+        "question": "Số thửa đất tách ra dự kiến số 2 là gì?",
+        "key": "thua_tach_ra_du_kien_so_2"
+      },
+      {
+        "field_label": "Từ điểm 4 đến điểm 5",
+        "question": "Khoảng cách từ điểm 4 đến điểm 5 là bao nhiêu?",
+        "key": "khoang_cach_4_5"
+      }
+    ]
+  }
+}
