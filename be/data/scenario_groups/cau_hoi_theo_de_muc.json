@@ -1,0 +1,44 @@
+[
+  {
+    "Đề mục": "Đất đai",
+    "Câu hỏi nhánh": "Bạn cần xử lý trường hợp đất đai nào?",
+    "Lựa chọn gợi ý cho người dùng": "Cấp giấy chứng nhận trong dự án BĐS\nChuyển nhượng/thừa kế/tặng cho/góp vốn\nCho thuê/cho thuê lại/xóa đăng ký thuê\nChia tách/sáp nhập tổ chức hoặc điều chỉnh quy hoạch\nThỏa thuận hộ gia đình/vợ chồng\nTài sản công/tranh chấp/thế chấp\nKhác/chưa rõ",
+    "Câu hỏi tiếp theo": "Hỏi tỉnh/thành; sau đó xác nhận tình huống pháp lý cụ thể."
+  },
+  {
+    "Đề mục": "Xây dựng, nhà ở & bất động sản",
+    "Câu hỏi nhánh": "Bạn đang cần làm việc gì về xây dựng hoặc nhà ở?",
+    "Lựa chọn gợi ý cho người dùng": "Giấy phép xây dựng\nChứng chỉ hành nghề/năng lực\nNhà thầu nước ngoài\nThẩm định báo cáo/thiết kế\nCông trình tạm\nNhà ở xã hội/công vụ/lực lượng vũ trang\nChung cư/quy hoạch/vật liệu/chất lượng/BĐS",
+    "Câu hỏi tiếp theo": "Nếu là giấy phép: hỏi cấp mới, sửa chữa, cấp lại, điều chỉnh hay gia hạn; rồi hỏi cấp/loại công trình. Nếu là nhà ở: hỏi loại nhà, nguồn vốn và vai trò người dùng."
+  },
+  {
+    "Đề mục": "Giao thông vận tải",
+    "Câu hỏi nhánh": "Nhu cầu của bạn thuộc loại hình giao thông nào?",
+    "Lựa chọn gợi ý cho người dùng": "Đường bộ\nĐường sắt\nHàng hải/cảng biển\nĐường thủy nội địa\nHàng không\nKhác/chưa rõ",
+    "Câu hỏi tiếp theo": "Hỏi tiếp về nút giao/đấu nối, công trình khẩn cấp, cảng-bến-luồng, vùng nước cảng biển hoặc loại giấy phép."
+  },
+  {
+    "Đề mục": "Nông nghiệp, thủy lợi & thiên tai",
+    "Câu hỏi nhánh": "Bạn cần giải quyết nhóm việc nào?",
+    "Lựa chọn gợi ý cho người dùng": "Công trình trên đất nông nghiệp\nHỗ trợ nhà màng/nhà lưới\nCơ sở chế biến/sơ chế/bảo quản/trang trại\nGiấy phép thủy lợi\nĐê điều/phòng chống thiên tai\nKinh tế hợp tác/phát triển nông thôn",
+    "Câu hỏi tiếp theo": "Nếu là giấy phép: hỏi cấp mới/cấp lại/gia hạn/điều chỉnh. Nếu là hỗ trợ: hỏi loại cơ sở và địa phương."
+  },
+  {
+    "Đề mục": "Du lịch, văn hóa & sáng tạo",
+    "Câu hỏi nhánh": "Bạn cần hỗ trợ hoặc cấp phép cho nội dung nào?",
+    "Lựa chọn gợi ý cho người dùng": "Homestay\nBãi đỗ xe/nhà vệ sinh/nhà đón khách/trạm dừng chân\nSản phẩm du lịch mạo hiểm\nBiển hiệu phương tiện du lịch đường thủy\nDi sản văn hóa\nBản quyền/mỹ thuật/triển lãm",
+    "Câu hỏi tiếp theo": "Nếu là biển hiệu: hỏi cấp mới/cấp đổi/cấp lại. Nếu là hỗ trợ: hỏi loại công trình và tỉnh/thành."
+  },
+  {
+    "Đề mục": "Công thương, kỹ thuật & an toàn",
+    "Câu hỏi nhánh": "Bạn cần xử lý nội dung kỹ thuật hoặc an toàn nào?",
+    "Lựa chọn gợi ý cho người dùng": "Kiểm định an toàn lao động\nTiêu chuẩn/đo lường/chất lượng\nAn toàn đập/hồ thủy điện\nDầu khí\nBức xạ/hạt nhân\nCông nghiệp địa phương",
+    "Câu hỏi tiếp theo": "Hỏi loại giấy phép/chứng nhận, vòng đời cấp mới-cấp lại-gia hạn-điều chỉnh và loại thiết bị/dự án."
+  },
+  {
+    "Đề mục": "Hành chính, tư pháp, an ninh & khác",
+    "Câu hỏi nhánh": "Nhu cầu của bạn gần với nhóm nào nhất?",
+    "Lựa chọn gợi ý cho người dùng": "Thi đua/khen thưởng\nGiám định tư pháp\nPhòng cháy chữa cháy\nHải quan\nHỗ trợ đầu tư\nViễn thông\nGiáo dục mầm non\nCông tác văn phòng",
+    "Câu hỏi tiếp theo": "Ưu tiên nhận mô tả tự do vì các thủ tục trong nhánh này ít và không đồng nhất."
+  }
+]

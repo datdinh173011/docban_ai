@@ -1,0 +1,58 @@
+[
+  {
+    "Bước": 1,
+    "Đề mục": "Nhóm nhu cầu",
+    "Câu hỏi mẫu": "Bạn đang cần giải quyết vấn đề thuộc nhóm nào?",
+    "Nguồn lựa chọn": "Danh sách duy nhất ở cột Nhóm đề mục",
+    "Thao tác": "Lọc Nhóm đề mục",
+    "Quy tắc thích ứng": "Luôn hỏi; hiển thị tối đa 7 lựa chọn"
+  },
+  {
+    "Bước": 2,
+    "Đề mục": "Lĩnh vực",
+    "Câu hỏi mẫu": "Trong nhóm này, nhu cầu của bạn thuộc lĩnh vực cụ thể nào?",
+    "Nguồn lựa chọn": "Các Lĩnh vực chuẩn hóa còn lại sau bước 1",
+    "Thao tác": "Lọc Lĩnh vực chuẩn hóa",
+    "Quy tắc thích ứng": "Bỏ qua nếu chỉ còn 1 lĩnh vực"
+  },
+  {
+    "Bước": 3,
+    "Đề mục": "Loại yêu cầu",
+    "Câu hỏi mẫu": "Bạn muốn cấp mới/đăng ký, cấp lại, gia hạn, điều chỉnh, hỗ trợ hay loại yêu cầu nào khác?",
+    "Nguồn lựa chọn": "Các Loại yêu cầu còn lại",
+    "Thao tác": "Lọc Loại yêu cầu",
+    "Quy tắc thích ứng": "Bỏ qua nếu chỉ còn 1 lựa chọn"
+  },
+  {
+    "Bước": 4,
+    "Đề mục": "Tình huống",
+    "Câu hỏi mẫu": "Trường hợp cụ thể của bạn liên quan đến đối tượng hoặc tình huống nào?",
+    "Nguồn lựa chọn": "Các Tình huống/đối tượng hồ sơ còn lại",
+    "Thao tác": "Lọc Tình huống/đối tượng hồ sơ",
+    "Quy tắc thích ứng": "Chỉ hiển thị lựa chọn có trong tập ứng viên"
+  },
+  {
+    "Bước": 5,
+    "Đề mục": "Địa bàn",
+    "Câu hỏi mẫu": "Bạn thực hiện tại tỉnh/thành nào, hay tại cơ quan trung ương?",
+    "Nguồn lựa chọn": "Phạm vi và Địa phương còn lại",
+    "Thao tác": "Lọc Phạm vi + Địa phương",
+    "Quy tắc thích ứng": "Hỏi sớm hơn nếu người dùng đã nêu địa phương"
+  },
+  {
+    "Bước": 6,
+    "Đề mục": "Đối tượng nộp",
+    "Câu hỏi mẫu": "Bạn nộp với tư cách cá nhân/hộ gia đình, tổ chức/doanh nghiệp hay cơ quan nhà nước?",
+    "Nguồn lựa chọn": "Đối tượng người dùng còn lại",
+    "Thao tác": "Lọc hoặc dùng để xác nhận",
+    "Quy tắc thích ứng": "Hỏi khi còn trên 1 ứng viên hoặc điều kiện áp dụng khác nhau"
+  },
+  {
+    "Bước": 7,
+    "Đề mục": "Xác nhận",
+    "Câu hỏi mẫu": "Mình tìm thấy các thủ tục sau. Trường hợp nào đúng nhất với bạn?",
+    "Nguồn lựa chọn": "Tên + Mã số + Cơ quan thực hiện",
+    "Thao tác": "Người dùng chọn Mã số",
+    "Quy tắc thích ứng": "Nếu còn trên 5 ứng viên, quay lại hỏi chi tiết thay vì liệt kê dài"
+  }
+]
