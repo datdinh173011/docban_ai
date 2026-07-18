@@ -1,7 +1,9 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Citation, bootstrapSession, deleteSession, streamChat } from "./api";
 import { copy, languages, Locale, suggestions } from "./i18n";
+import { PrivacyPolicy } from "./PrivacyPolicy";
 import { ReviewForm } from "./ReviewForm";
+import { useRoute } from "./router";
 
 type Message = {
   id: string;
@@ -17,6 +19,7 @@ type PendingMessage = { content: string; translationConsent: boolean | null };
 const id = () => crypto.randomUUID();
 
 export function App() {
+  const [route, goToRoute] = useRoute();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [language, setLanguage] = useState(() => {
@@ -39,12 +42,15 @@ export function App() {
   const [pendingExternalSearchMessage, setPendingExternalSearchMessage] = useState<string | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
+  const bootstrappedRef = useRef(false);
   const isChatting = messages.length > 0;
   const text = copy[language.code];
 
   useEffect(() => {
+    if (route !== "app" || bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
     void bootstrapSession().catch(() => setNotice(text.connectionError));
-  }, []);
+  }, [route]);
 
   useEffect(() => {
     const stream = streamRef.current;
@@ -213,6 +219,17 @@ export function App() {
 
   const consumeActiveFormCode = useCallback(() => setFormCodePending(false), []);
 
+  if (route === "privacy") {
+    return (
+      <PrivacyPolicy
+        locale={language.code}
+        languages={languages}
+        onSelectLocale={setLanguage}
+        onBack={() => goToRoute("app")}
+      />
+    );
+  }
+
   return (
     <div className="app-shell">
       <div className="app-chrome">
@@ -252,9 +269,21 @@ export function App() {
         </header>
 
         <nav className="tabs" aria-label="ICIVI">
-          <div className="tabs-rail">
-            <button className={!reviewTab ? "active" : ""} onClick={() => setReviewTab(false)}>💬 {text.chat}</button>
-            <button className={reviewTab ? "active" : ""} onClick={() => setReviewTab(true)}>📄 {text.review}{formCodePending && <span className="tab-badge" aria-label={text.newForm} />}</button>
+          <div className="tabs-line">
+            <div className="tabs-rail">
+              <button className={!reviewTab ? "active" : ""} onClick={() => setReviewTab(false)}>💬 {text.chat}</button>
+              <button className={reviewTab ? "active" : ""} onClick={() => setReviewTab(true)}>📄 {text.review}{formCodePending && <span className="tab-badge" aria-label={text.newForm} />}</button>
+            </div>
+            <a
+              className="privacy-link"
+              href="/privacy"
+              onClick={(event) => {
+                event.preventDefault();
+                goToRoute("privacy");
+              }}
+            >
+              {text.privacyLinkLabel}
+            </a>
           </div>
         </nav>
       </div>
