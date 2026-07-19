@@ -228,6 +228,7 @@ Frontend cung cấp giao diện tương tác cho người dân:
 - Xem hướng dẫn từng bước.
 - Nhập nội dung đơn.
 - Xem lỗi kiểm tra theo từng trường.
+- Ghi âm giọng nói để chuyển thành văn bản nhập liệu (voice input).
 - Chọn ngôn ngữ.
 - Xóa phiên hoặc bắt đầu lại.
 
@@ -267,6 +268,24 @@ Frontend cung cấp giao diện tương tác cho người dân:
 - Chỉ bật nút tạo PDF khi validation không có `blocking_error`.
 - Hiển thị warning và suggestion trước khi người dùng tải PDF.
 
+#### Voice input
+
+- Nút micro cạnh ô nhập liệu, chỉ mount khi trình duyệt hỗ trợ
+  `getUserMedia`/`MediaRecorder`; khi đó gọi `GET /api/v1/voice/status` một
+  lần để biết dịch vụ nhận diện giọng nói đã sẵn sàng chưa. Nút chỉ hiển thị
+  khi cả hai điều kiện đúng: dịch vụ sẵn sàng và giao diện đang ở tiếng Việt.
+- Mô hình ghi-rồi-gửi: nhấn để bắt đầu ghi, nhấn "Dừng ghi âm" để dừng và gửi
+  nguyên đoạn ghi âm lên backend transcribe một lần — không stream audio liên
+  tục. Tự động dừng và gửi sau 60 giây, có cảnh báo hiển thị khi đã ghi quá 50
+  giây.
+- Trong lúc ghi âm và trong lúc chờ kết quả transcribe, ô nhập liệu và nút gửi
+  tạm khóa để tránh gửi trùng hoặc gửi nội dung chưa đầy đủ.
+- Kết quả nhận diện được **thêm vào cuối** nội dung đang có trong ô nhập liệu
+  (không thay thế) để người dùng xem lại/sửa, không tự động gửi thẳng.
+- Các lỗi (từ chối quyền micro, ghi âm quá lớn, dịch vụ chưa sẵn sàng, không
+  nhận diện được lời nói) hiển thị thành thông báo ngắn bằng tiếng Việt ngay
+  tại nút micro, không phải lỗi chặn toàn trang.
+
 ### 5.3 Quy tắc frontend
 
 - Không hard-code cấu trúc từng loại đơn trong React component.
@@ -291,6 +310,7 @@ FastAPI là lớp giao tiếp chính giữa frontend và các thành phần xử
 - Cung cấp dữ liệu thủ tục và biểu mẫu.
 - Gọi Validation Engine.
 - Gọi Form PDF Export Service sau khi validation hợp lệ.
+- Gọi Speech-to-Text Service để chuyển đoạn ghi âm giọng nói thành văn bản.
 - Gọi RAG retrieval.
 - Áp dụng rate limit và giới hạn payload.
 - Kiểm tra session token.
@@ -307,11 +327,63 @@ FastAPI là lớp giao tiếp chính giữa frontend và các thành phần xử
 /api/v1/validation
 /api/v1/forms/{form_code}/exports/pdf
 /api/v1/citations
+/api/v1/voice
 /api/v1/security
 /api/v1/health
 ```
 
 Chi tiết request, response và schema của từng API sẽ được mô tả trong tài liệu API riêng.
+
+### 6.2 Speech-to-Text Service
+
+Speech-to-Text Service chuyển đoạn ghi âm giọng nói của người dùng thành văn
+bản để đưa vào khung chat hiện có, dùng chung pipeline xử lý với nhập liệu
+bằng bàn phím. Service không tự trả lời, không tự gửi hộ nội dung và không lưu
+file âm thanh.
+
+**Nguyên tắc:**
+
+- Nhận diện giọng nói chạy cục bộ (offline) bằng mô hình ASR nhỏ (Zipformer
+  tiếng Việt, chạy CPU qua sherpa-onnx), không gửi âm thanh ra dịch vụ ngoài —
+  nhất quán với ADR-005, ADR-011 và nguyên tắc LAN/internal-first (mục 2.1).
+- Chỉ hỗ trợ ghi-rồi-gửi: nhận một đoạn âm thanh hoàn chỉnh mỗi lần gọi (tối
+  đa 60 giây, giới hạn cả ở frontend và khi decode ở backend), không hỗ trợ
+  nhận diện liên tục theo thời gian thực trong Version 1.
+- Âm thanh do trình duyệt ghi (thường là WebM/Opus, Ogg/Opus hoặc MP4, không
+  phải WAV thô) được chuẩn hóa bằng `ffmpeg` thành PCM 16kHz mono trước khi
+  đưa vào mô hình nhận diện, để không phụ thuộc định dạng ghi âm cụ thể của
+  từng trình duyệt. Bước chuẩn hóa có giới hạn thời lượng đầu ra và timeout
+  riêng để một file bất thường không thể treo tiến trình xử lý.
+- Việc kiểm tra khả dụng (đủ file mô hình, thư viện, `ffmpeg`) tách khỏi việc
+  nạp mô hình vào bộ nhớ: kiểm tra khả dụng chạy nhanh, không tốn tài nguyên,
+  dùng cho API trạng thái và khi khởi động backend; mô hình ASR chỉ thực sự
+  được nạp vào bộ nhớ ở lượt transcribe đầu tiên.
+- Việc transcribe (bao gồm gọi `ffmpeg` và chạy mô hình ASR) thực thi trên
+  thread pool riêng, không chặn event loop xử lý các request khác của backend.
+- Service là năng lực tùy chọn (optional): nếu mô hình hoặc thư viện chưa sẵn
+  sàng trên một môi trường triển khai cụ thể, backend báo trạng thái chưa sẵn
+  sàng qua API trạng thái riêng, ẩn nút micro ở frontend, và không chặn hoặc
+  làm lỗi các luồng khác của chatbot — kể cả khi khởi động backend.
+- Giới hạn dung lượng file ghi âm tải lên (từ chối các file vượt ngưỡng trước
+  khi xử lý) để tránh lạm dụng tài nguyên xử lý âm thanh.
+- Âm thanh người dùng chỉ tồn tại trong bộ nhớ xử lý của request, không lưu
+  trên disk, database, backup hoặc application log — cùng nguyên tắc với PDF
+  đã điền ở Form PDF Export Service (mục 9.3). Log kỹ thuật chỉ ghi số liệu
+  (dung lượng, độ trễ, mã lỗi), không bao giờ ghi lại nội dung văn bản đã
+  nhận diện được.
+
+**Contract API (mức kiến trúc, chi tiết schema sẽ mô tả trong tài liệu API riêng):**
+
+```text
+GET  /api/v1/voice/status       -> có sẵn sàng nhận diện giọng nói hay không
+POST /api/v1/voice/transcribe   -> nhận file âm thanh, trả về văn bản nhận diện được
+```
+
+Backend phân loại lỗi rõ ràng theo mã trạng thái HTTP: dịch vụ chưa sẵn sàng
+(thiếu mô hình/thư viện/`ffmpeg`) trả về lỗi "dịch vụ không khả dụng"; file
+ghi âm có vấn đề (rỗng, quá dài, không giải mã được, không nhận diện được lời
+nói) trả về lỗi "dữ liệu không hợp lệ" khác với lỗi dịch vụ; file tải lên vượt
+giới hạn dung lượng trả về lỗi "quá lớn" ngay trước khi xử lý.
 
 ---
 
@@ -946,6 +1018,20 @@ Version 1 cần tối thiểu:
 - Dịch toàn bộ UI, hướng dẫn điền đơn và trang điều khoản/quyền riêng tư.
 - Review bởi người bản ngữ.
 
+### Giai đoạn 7 — Nhập liệu bằng giọng nói (đã hoàn thành)
+
+- Chuẩn hóa và đóng gói mô hình ASR cục bộ (tiếng Việt, Zipformer qua
+  sherpa-onnx) cùng mã nguồn.
+- Bước chuẩn hóa âm thanh đầu vào bằng `ffmpeg` (tần số lấy mẫu, số kênh, định
+  dạng) trước khi đưa vào mô hình nhận diện.
+- API trạng thái sẵn sàng và API transcribe cho Speech-to-Text Service (mục
+  6.2), tách kiểm tra khả dụng khỏi việc nạp mô hình, chạy transcribe trên
+  thread pool riêng.
+- Nút ghi-rồi-gửi ở frontend (nhấn để ghi, nhấn để dừng, tự dừng sau 60 giây),
+  chỉ hiển thị khi service sẵn sàng và giao diện đang ở tiếng Việt.
+- Test với các định dạng ghi âm khác nhau giữa trình duyệt, âm thanh nhiễu và
+  trường hợp thiếu mô hình/thư viện trên môi trường triển khai.
+
 ---
 
 ## 17. Các quyết định kiến trúc
@@ -1013,6 +1099,19 @@ publish.
 **Lý do:** Mẫu `.doc` legacy không phù hợp để điền trong runtime. PDF nền với
 mapping thủ công giữ layout mẫu, cho phép QA theo từng field và tránh lưu file
 PII lâu dài.
+
+### ADR-011 — Speech-to-text cục bộ (offline) thay vì cloud API
+
+**Quyết định:** Nhận diện giọng nói cho voice input dùng mô hình ASR nhỏ chạy
+cục bộ trên CPU của máy chủ, không gọi dịch vụ speech-to-text của bên thứ ba
+qua Internet.
+
+**Lý do:** Nhất quán với nguyên tắc LAN/internal-first (mục 2.1) và ADR-005 —
+âm thanh người dùng (có thể chứa thông tin cá nhân được đọc ra bằng lời) không
+rời khỏi môi trường LAN/internal. Đổi lại, độ chính xác nhận diện có thể thấp
+hơn dịch vụ cloud và Version 1 chỉ hỗ trợ tiếng Việt; đây là đánh đổi có chủ
+đích để giữ nguyên tắc không phụ thuộc dịch vụ ngoài đã áp dụng cho LLM (LLM
+ngoài cần consent riêng, xem mục 2.5) và RAG.
 
 ---
 
