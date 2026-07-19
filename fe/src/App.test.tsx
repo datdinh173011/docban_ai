@@ -22,6 +22,12 @@ vi.mock("./api", () => ({
   exportFormPdf: vi.fn(),
 }));
 
+vi.mock("./VoiceInput", () => ({
+  VoiceInput: ({ onBusyChange }: { onBusyChange: (busy: boolean) => void }) => (
+    <button onClick={() => onBusyChange(true)} type="button">Micro thử nghiệm</button>
+  ),
+}));
+
 describe("App", () => {
   afterEach(cleanup);
 
@@ -73,6 +79,19 @@ describe("App", () => {
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
     expect(screen.queryByText("Tôi muốn đăng ký khai sinh cho bé")).not.toBeInTheDocument();
     expect(screen.getByText("I want to register my child's birth")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Micro thử nghiệm" })).not.toBeInTheDocument();
+  });
+
+  it("offers voice input only for Vietnamese", () => {
+    render(<App />);
+    expect(screen.getByRole("button", { name: "Micro thử nghiệm" })).toBeInTheDocument();
+  });
+
+  it("locks the composer while voice recording is active", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Micro thử nghiệm" }));
+    expect(screen.getByRole("textbox", { name: "Gửi yêu cầu" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Gửi yêu cầu" })).toBeDisabled();
   });
 
   it("requests translation consent before sending a non-Vietnamese chat", async () => {

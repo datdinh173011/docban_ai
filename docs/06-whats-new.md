@@ -79,3 +79,38 @@ tĩnh cho từng trường hợp riêng lẻ.
   hiển thị trạng thái "chưa rõ" thay vì mặc định "hợp lệ".
 - Nếu LLM không khả dụng (thiếu cấu hình hoặc lỗi mạng/provider), hệ thống tự
   động rơi về kết quả chỉ có rule — không có lỗi, không chặn luồng thẩm định.
+
+---
+
+## 4. Nhập liệu bằng giọng nói (Voice input)
+
+**Giá trị:** Trước đây người dùng chỉ có thể gõ tay mọi nội dung — bất tiện
+khi mô tả một yêu cầu dài bằng lời sẽ nhanh hơn nhiều so với gõ, đặc biệt trên
+điện thoại hoặc khi trả lời các câu hỏi điền đơn của chatbot. Nút micro cạnh ô
+nhập liệu cho phép ghi âm rồi tự động chuyển thành văn bản, người dùng chỉ cần
+xem lại và gửi như bình thường.
+
+**Kỹ thuật:**
+- Nhận diện giọng nói chạy hoàn toàn cục bộ (offline) bằng mô hình Zipformer
+  tiếng Việt qua thư viện `sherpa-onnx` (`be/voice_ai/speech_to_text.py`) —
+  không gửi âm thanh ra dịch vụ ngoài, đúng nguyên tắc LAN/internal-first đã
+  áp dụng cho toàn hệ thống.
+- Âm thanh trình duyệt ghi (WebM/Opus, Ogg/Opus hoặc MP4 tùy trình duyệt) được
+  chuẩn hóa bằng `ffmpeg` thành PCM 16kHz mono trước khi đưa vào mô hình, có
+  giới hạn thời lượng và timeout riêng cho bước chuẩn hóa.
+- Việc kiểm tra khả dụng (`preflight()`) tách khỏi việc nạp mô hình vào bộ nhớ
+  (`initialize_if_needed()`, chạy lazy ở lượt transcribe đầu tiên): một môi
+  trường thiếu mô hình/thư viện/`ffmpeg` chỉ khiến nút micro tự ẩn, không làm
+  lỗi hoặc chặn lúc khởi động backend.
+- Việc gọi `ffmpeg` và chạy mô hình ASR thực thi trên thread pool riêng
+  (`run_in_threadpool`), không chặn event loop xử lý các request khác.
+- Frontend (`fe/src/VoiceInput.tsx`) dùng mô hình nhấn-để-ghi/nhấn-để-dừng,
+  tự dừng và gửi sau 60 giây, cảnh báo khi gần đến giới hạn. Kết quả nhận diện
+  được **thêm vào cuối** nội dung đang gõ, không thay thế và không tự gửi.
+  Nút micro chỉ hiển thị khi giao diện đang ở tiếng Việt và trình duyệt hỗ trợ
+  ghi âm.
+- Backend giới hạn dung lượng file tải lên và phân loại lỗi rõ ràng theo mã
+  trạng thái HTTP (dịch vụ chưa sẵn sàng khác với dữ liệu ghi âm không hợp
+  lệ). Âm thanh chỉ tồn tại trong bộ nhớ của request; log kỹ thuật ghi số liệu
+  (dung lượng, độ trễ, mã lỗi) nhưng không bao giờ ghi lại nội dung đã nhận
+  diện được.
