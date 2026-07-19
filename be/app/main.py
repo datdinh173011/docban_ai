@@ -19,7 +19,7 @@ from app.db import create_database_engine
 from app.form_ai_review import ai_review_form, merge_ai_issues
 from app.form_conversation import maybe_fill_form, resolve_form_code
 from app.form_export import ExportError, ensure_vietnamese_font, render_export
-from app.form_validation import canonical_input_hash, validate_form
+from app.form_validation import canonical_input_hash, canonicalize_field_value, validate_form
 from app.logging_config import configure_logging
 from app.procedure_catalog import load_catalog, normalize_text
 from app.procedure_pipeline import ProcedurePipeline, ReviewRegistry
@@ -462,6 +462,7 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
                     group_code=field.group_code,
                     data_type=field.data_type,
                     required=field.required,
+                    allow_not_applicable=field.allow_not_applicable,
                     enum_values=list(field.validation.enum_values) if field.validation.enum_values else None,
                 )
                 for field in candidate.fields
@@ -485,11 +486,15 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         http_response: Response,
         session_id: str | None = Cookie(default=None, alias=settings.session_cookie_name),
     ) -> FormDraftResponse:
-        _form_candidate_or_404(form_code)
+        candidate = _form_candidate_or_404(form_code)
         current_session_id, state, is_new = await ensure_session(session_id)
         if is_new:
             set_session_cookie(http_response, current_session_id)
-        merged = {**state.get("form_draft", {}).get(form_code, {}), **payload.fields}
+        normalized_fields = {
+            field_code: canonicalize_field_value(field, value) if (field := candidate.field_by_code(field_code)) else value
+            for field_code, value in payload.fields.items()
+        }
+        merged = {**state.get("form_draft", {}).get(form_code, {}), **normalized_fields}
         conversation_context = dict(state.get("conversation_context") or {})
         conversation_context.update({
             "active_form_code": form_code,

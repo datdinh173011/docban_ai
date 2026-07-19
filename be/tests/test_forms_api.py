@@ -32,6 +32,9 @@ def app():
 
 VALID_BIRTH_VALUES = {
     "applicant_full_name": "Nguyễn Văn An",
+    "applicant_birth_date": "1990-01-01",
+    "applicant_residence": "Hà Nội",
+    "applicant_id_document": "012345678901",
     "relationship_to_child": "Cha",
     "child_full_name": "Nguyễn Thị Hồng Ánh",
     "child_birth_date": "2026-01-01",
@@ -39,8 +42,15 @@ VALID_BIRTH_VALUES = {
     "child_ethnicity": "Kinh",
     "child_nationality": "Việt Nam",
     "child_birth_place": "Bệnh viện Phụ sản Hà Nội",
+    "child_hometown": "Hà Nội",
     "mother_full_name": "Trần Thị Bích",
+    "mother_birth_year": "1992",
+    "mother_ethnicity": "Kinh",
+    "mother_nationality": "Việt Nam",
+    "mother_residence": "Hà Nội",
+    "mother_id_document": "012345678902",
     "copy_request_needed": "Không",
+    "copy_count": 0,
 }
 
 
@@ -89,6 +99,19 @@ async def test_form_schema_returns_groups_and_fields(app) -> None:
     body = response.json()
     assert body["form_code"] == "BIRTH_REGISTRATION_FORM"
     assert any(field["field_code"] == "child_full_name" for field in body["fields"])
+    assert all("allow_not_applicable" in field for field in body["fields"])
+
+
+@pytest.mark.asyncio
+async def test_draft_normalizes_not_applicable_alias(app) -> None:
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.put(
+                "/api/v1/forms/PERMANENT_RESIDENCE_CT01_FORM/draft",
+                json={"fields": {"applicant_email": "Không có"}},
+            )
+    assert response.status_code == 200
+    assert response.json()["fields"]["applicant_email"] == "Không áp dụng"
 
 
 @pytest.mark.asyncio

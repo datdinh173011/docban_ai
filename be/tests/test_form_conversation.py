@@ -23,6 +23,17 @@ def test_form_completion_depends_only_on_required_field_presence() -> None:
     assert form_required_fields_complete(candidate, one_missing) is False
 
 
+def test_form_completion_accepts_not_applicable_only_for_allowed_fields() -> None:
+    candidate = SETTINGS.form_candidates["PERMANENT_RESIDENCE_CT01_FORM"]
+    values = {field.field_code: "value" for field in candidate.fields if field.required}
+    values["applicant_email"] = "Không có"
+    values["household_members"] = "Không áp dụng"
+    assert form_required_fields_complete(candidate, values) is True
+
+    values["applicant_full_name"] = "Không áp dụng"
+    assert form_required_fields_complete(candidate, values) is False
+
+
 def test_resolve_form_code_by_keyword() -> None:
     assert resolve_form_code(None, "Tôi muốn đăng ký khai sinh cho con", SETTINGS.form_mappings) == "BIRTH_REGISTRATION_FORM"
     assert resolve_form_code(None, "làm sao đăng ký thường trú", SETTINGS.form_mappings) == "PERMANENT_RESIDENCE_CT01_FORM"

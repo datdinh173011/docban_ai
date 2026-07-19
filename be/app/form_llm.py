@@ -15,6 +15,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from app.config import Settings
+from app.form_validation import NOT_APPLICABLE_VALUE, field_value_is_answered
 from app.llm import response_content
 from app.procedure_settings import FormCandidate, get_procedure_settings
 
@@ -34,7 +35,10 @@ def parse_form_filling_json(content: str) -> FormFillingReply:
 
 
 def mock_form_reply(language_code: str, candidate: FormCandidate, known_fields: dict) -> FormFillingReply:
-    missing = next((field for field in candidate.fields if field.required and not known_fields.get(field.field_code)), None)
+    missing = next(
+        (field for field in candidate.fields if field.required and not field_value_is_answered(field, known_fields.get(field.field_code))),
+        None,
+    )
     is_vietnamese = language_code.lower().startswith("vi")
     if missing is None:
         answer = (
@@ -49,19 +53,20 @@ def mock_form_reply(language_code: str, candidate: FormCandidate, known_fields: 
             if is_vietnamese
             else f"Could you tell me: {missing.label_vi}?"
         )
-    return FormFillingReply(answer=answer, quick_replies=[])
+    quick_replies = [NOT_APPLICABLE_VALUE] if missing and missing.allow_not_applicable else []
+    return FormFillingReply(answer=answer, quick_replies=quick_replies)
 
 
 def _field_schema_text(candidate: FormCandidate, known_fields: dict) -> str:
     missing_required = [
-        {"field_code": f.field_code, "label_vi": f.label_vi, "data_type": f.data_type, "enum_values": list(f.validation.enum_values) if f.validation.enum_values else None}
+        {"field_code": f.field_code, "label_vi": f.label_vi, "data_type": f.data_type, "enum_values": list(f.validation.enum_values) if f.validation.enum_values else None, "allow_not_applicable": f.allow_not_applicable}
         for f in candidate.fields
-        if f.required and not known_fields.get(f.field_code)
+        if f.required and not field_value_is_answered(f, known_fields.get(f.field_code))
     ]
     optional_remaining = [
         {"field_code": f.field_code, "label_vi": f.label_vi, "data_type": f.data_type}
         for f in candidate.fields
-        if not f.required and not known_fields.get(f.field_code)
+        if not f.required and not field_value_is_answered(f, known_fields.get(f.field_code))
     ]
     return json.dumps({"missing_required_fields": missing_required, "optional_remaining_fields": optional_remaining}, ensure_ascii=False)
 

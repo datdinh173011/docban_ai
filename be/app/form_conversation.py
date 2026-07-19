@@ -11,6 +11,7 @@ from typing import Any
 
 from app.config import Settings
 from app.form_llm import fill_form
+from app.form_validation import canonicalize_field_value, field_value_is_answered
 from app.procedure_catalog import normalize_text
 from app.procedure_settings import FormCandidate, FormMapping, ProcedureSettings
 from app.schemas import AssistantReply
@@ -30,13 +31,13 @@ def resolve_form_code(active_procedure_code: str | None, message: str, mappings:
 
 def form_required_fields_complete(candidate: FormCandidate, values: dict[str, Any]) -> bool:
     """Completion is deterministic: every required field must have a non-empty value."""
-    return all(not field.required or bool(str(values.get(field.field_code, "")).strip()) for field in candidate.fields)
+    return all(not field.required or field_value_is_answered(field, values.get(field.field_code)) for field in candidate.fields)
 
 
 def _reconcile_incomplete_reply(candidate: FormCandidate, values: dict[str, Any], reply: AssistantReply) -> AssistantReply:
     missing = [
         field for field in candidate.fields
-        if field.required and not str(values.get(field.field_code, "")).strip()
+        if field.required and not field_value_is_answered(field, values.get(field.field_code))
     ]
     normalized_answer = normalize_text(reply.answer)
     completion_claims = ("ghi nhan day du", "da day du", "da hoan tat", "hoan thanh bieu mau")
@@ -79,11 +80,11 @@ async def maybe_fill_form(
     candidate = procedure_settings.form_candidates[form_code]
     known_fields = state.get("form_draft", {}).get(form_code, {})
     form_reply = await fill_form(settings, messages[-6:], state.get("language_code", "vi"), candidate, known_fields)
-    newly_extracted = {
-        field_code: value
-        for field_code, value in form_reply.extracted_fields.items()
-        if value and candidate.field_by_code(field_code) is not None
-    }
+    newly_extracted = {}
+    for field_code, value in form_reply.extracted_fields.items():
+        field = candidate.field_by_code(field_code)
+        if value and field is not None:
+            newly_extracted[field_code] = canonicalize_field_value(field, value)
     merged_fields = {**known_fields, **newly_extracted}
     new_reply = AssistantReply(intent="form_guidance", answer=form_reply.answer, quick_replies=form_reply.quick_replies)
     new_reply = _reconcile_incomplete_reply(candidate, merged_fields, new_reply)

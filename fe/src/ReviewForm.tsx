@@ -12,6 +12,7 @@ import {
 import { copy, Locale } from "./i18n";
 
 const KNOWN_FORM_CODES = ["BIRTH_REGISTRATION_FORM", "PERMANENT_RESIDENCE_CT01_FORM", "CONSTRUCTION_PERMIT_REQUEST_FORM"];
+const NOT_APPLICABLE_VALUE = "Không áp dụng";
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -220,6 +221,13 @@ export function ReviewForm({ activeFormCode, autoValidateRequestId, locale, onFo
     if (formCode) void updateFormDraft(formCode, next).catch(() => setError(text.formSaveError));
   }
 
+  function setNotApplicable(fieldCode: string, checked: boolean) {
+    const next = { ...values, [fieldCode]: checked ? NOT_APPLICABLE_VALUE : "" };
+    setValues(next);
+    setDirty(true);
+    if (formCode) void updateFormDraft(formCode, next).catch(() => setError(text.formSaveError));
+  }
+
   async function runValidation() {
     if (!formCode) return;
     setValidating(true);
@@ -301,37 +309,55 @@ export function ReviewForm({ activeFormCode, autoValidateRequestId, locale, onFo
             <div className="field-grid">
               {schema.fields.filter((field) => field.group_code === group.group_code).map((field) => {
                 const issue = validation?.issues.find((item) => item.field_code === field.field_code);
+                const isNotApplicable = values[field.field_code] === NOT_APPLICABLE_VALUE;
+                const inputId = `field-${field.field_code}`;
                 return (
-                  <label key={field.field_code} className="field">
-                    <span className="field-label">{field.label_vi}{field.required && <span className="required">*</span>}</span>
+                  <div key={field.field_code} className="field">
+                    <label className="field-label" htmlFor={inputId}>{field.label_vi}{field.required && <span className="required">*</span>}</label>
                     {field.data_type === "enum" ? (
                       <select
-                        value={values[field.field_code] ?? ""}
+                        id={inputId}
+                        value={isNotApplicable ? "" : values[field.field_code] ?? ""}
                         onChange={(event) => handleSelectChange(field.field_code, event.target.value)}
                         className={issue ? issue.severity : ""}
+                        disabled={isNotApplicable}
                       >
                         <option value="">{text.choose}</option>
                         {field.enum_values?.map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
                     ) : field.data_type === "table" ? (
                       <textarea
-                        value={values[field.field_code] ?? ""}
+                        id={inputId}
+                        value={isNotApplicable ? "" : values[field.field_code] ?? ""}
                         onChange={(event) => updateField(field.field_code, event.target.value)}
                         onBlur={() => void persistDraft()}
                         className={issue ? issue.severity : ""}
                         rows={2}
+                        disabled={isNotApplicable}
                       />
                     ) : (
                       <input
+                        id={inputId}
                         type={field.data_type === "date" ? "date" : field.data_type === "number" ? "number" : "text"}
-                        value={values[field.field_code] ?? ""}
+                        value={isNotApplicable ? "" : values[field.field_code] ?? ""}
                         onChange={(event) => updateField(field.field_code, event.target.value)}
                         onBlur={() => void persistDraft()}
                         className={issue ? issue.severity : ""}
+                        disabled={isNotApplicable}
                       />
                     )}
+                    {field.allow_not_applicable && (
+                      <label className="not-applicable-option">
+                        <input
+                          type="checkbox"
+                          checked={isNotApplicable}
+                          onChange={(event) => setNotApplicable(field.field_code, event.target.checked)}
+                        />
+                        Không áp dụng
+                      </label>
+                    )}
                     {issue && <span className={`field-issue ${issue.severity}`}>{issue.message_vi}</span>}
-                  </label>
+                  </div>
                 );
               })}
             </div>

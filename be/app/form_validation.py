@@ -15,6 +15,8 @@ from app.procedure_settings import CrossFieldRule, FormCandidate, FormField
 from app.schemas import ValidationIssue, ValidationResult, ValidationSummary
 
 _EMPTY_VALUES = (None, "", [], {})
+NOT_APPLICABLE_VALUE = "Không áp dụng"
+_NOT_APPLICABLE_ALIASES = {"không áp dụng", "không có", "khong ap dung", "khong co"}
 
 
 def canonical_input_hash(values: dict) -> str:
@@ -24,6 +26,24 @@ def canonical_input_hash(values: dict) -> str:
 
 def _is_empty(value: object) -> bool:
     return value in _EMPTY_VALUES
+
+
+def is_not_applicable_value(value: object) -> bool:
+    return isinstance(value, str) and " ".join(value.casefold().split()) in _NOT_APPLICABLE_ALIASES
+
+
+def canonicalize_field_value(field: FormField, value: object) -> object:
+    if field.allow_not_applicable and is_not_applicable_value(value):
+        return NOT_APPLICABLE_VALUE
+    return value
+
+
+def field_value_is_answered(field: FormField, value: object) -> bool:
+    if _is_empty(value):
+        return False
+    if is_not_applicable_value(value):
+        return field.allow_not_applicable
+    return True
 
 
 def _parse_date(value: object) -> date | None:
@@ -52,6 +72,15 @@ def _check_field(field: FormField, value: object) -> ValidationIssue | None:
         return _issue(field, "FIELD_REQUIRED", severity="blocking_error")
     if empty:
         return None
+    if is_not_applicable_value(value):
+        if field.allow_not_applicable:
+            return None
+        return _issue(
+            field,
+            "FIELD_NOT_APPLICABLE_FORBIDDEN",
+            severity="blocking_error",
+            message_vi=f"{field.label_vi} không được phép chọn Không áp dụng.",
+        )
     if field.data_type == "enum" and field.validation.enum_values and value not in field.validation.enum_values:
         return _issue(field, "FIELD_ENUM_INVALID", severity="blocking_error")
     if field.validation.regex and isinstance(value, str) and not re.fullmatch(field.validation.regex, value.strip()):
@@ -121,6 +150,18 @@ def status_from_summary(summary: ValidationSummary) -> str:
 
 def validate_form(candidate: FormCandidate, values: dict) -> ValidationResult:
     issues = [issue for field in candidate.fields if (issue := _check_field(field, values.get(field.field_code))) is not None]
+    copy_request = values.get("copy_request_needed")
+    copy_count = values.get("copy_count")
+    if candidate.form_code == "BIRTH_REGISTRATION_FORM" and copy_count not in _EMPTY_VALUES:
+        try:
+            parsed_copy_count = int(str(copy_count).strip())
+        except ValueError:
+            parsed_copy_count = None
+        copy_count_field = candidate.field_by_code("copy_count")
+        if copy_count_field and copy_request == "Có" and (parsed_copy_count is None or parsed_copy_count < 1):
+            issues.append(_issue(copy_count_field, "COPY_COUNT_REQUIRED_WHEN_REQUESTED", severity="blocking_error", message_vi="Số lượng bản sao phải từ 1 trở lên khi có yêu cầu cấp bản sao."))
+        if copy_count_field and copy_request == "Không" and parsed_copy_count != 0:
+            issues.append(_issue(copy_count_field, "COPY_COUNT_MUST_BE_ZERO", severity="blocking_error", message_vi="Số lượng bản sao phải bằng 0 khi không yêu cầu cấp bản sao."))
     issues += [issue for rule in candidate.cross_field_rules if (issue := _check_cross_field_rule(rule, values)) is not None]
     summary = summarize_issues(issues)
     return ValidationResult(

@@ -53,6 +53,7 @@ def _field_schema_text(candidate: FormCandidate) -> str:
             "label_vi": field.label_vi,
             "data_type": field.data_type,
             "required": field.required,
+            "allow_not_applicable": field.allow_not_applicable,
             "enum_values": list(field.validation.enum_values) if field.validation.enum_values else None,
         }
         for field in candidate.fields

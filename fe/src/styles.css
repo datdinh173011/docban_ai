@@ -460,6 +460,23 @@ h1 span {
   border-color: var(--indigo);
 }
 
+.field .not-applicable-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.field .not-applicable-option input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--indigo);
+}
+
 .field input.blocking_error,
 .field select.blocking_error,
 .field textarea.blocking_error {

@@ -69,6 +69,30 @@ def test_birth_registration_form_has_the_expected_cross_field_rules() -> None:
     }
 
 
+def test_required_field_matrix_matches_product_rules() -> None:
+    settings = load_procedure_settings(SETTINGS_DIR)
+    birth = settings.form_candidates["BIRTH_REGISTRATION_FORM"]
+    ct01 = settings.form_candidates["PERMANENT_RESIDENCE_CT01_FORM"]
+    construction = settings.form_candidates["CONSTRUCTION_PERMIT_REQUEST_FORM"]
+
+    optional_birth_groups = {"father", "marriage"}
+    assert all(field.required == (field.group_code not in optional_birth_groups) for field in birth.fields)
+    assert all(field.required for field in ct01.fields)
+    assert all(field.required for field in construction.fields)
+    assert {field.field_code for field in ct01.fields if field.allow_not_applicable} == {"applicant_email", "household_members"}
+    assert {field.field_code for field in construction.fields if field.allow_not_applicable} == {
+        "representative_name",
+        "representative_title",
+        "representative_citizen_id",
+        "design_org_name",
+        "design_org_license_number",
+        "review_org_name",
+        "review_org_license_number",
+        "setback_distance",
+        "attached_documents",
+    }
+
+
 def _birth_form_guidance(bundle: Path) -> Path:
     return bundle / "form_guidance.json"
 

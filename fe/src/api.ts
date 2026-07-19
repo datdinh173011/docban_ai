@@ -26,6 +26,7 @@ export type FormFieldSchema = {
   group_code: string;
   data_type: "string" | "date" | "enum" | "number" | "table";
   required: boolean;
+  allow_not_applicable: boolean;
   enum_values: string[] | null;
 };
 

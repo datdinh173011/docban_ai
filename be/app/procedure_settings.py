@@ -6,7 +6,7 @@ import hashlib
 import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -77,6 +77,7 @@ class FormField:
     group_code: str
     data_type: str
     required: bool
+    allow_not_applicable: bool
     do_not_infer: bool
     validation: FormFieldValidation
     export: FormFieldExport | None
@@ -274,14 +275,24 @@ def _form_field(payload: dict[str, Any], group_codes: set[str]) -> FormField:
         raise ValueError(f"form_field_group_invalid:{field_code}")
     if data_type not in _DATA_TYPES:
         raise ValueError(f"form_field_data_type_invalid:{field_code}")
+    required = bool(payload.get("required", False))
+    validation = _form_field_validation(payload, field_code)
+    if required and not validation.rule_code.endswith("_REQUIRED"):
+        validation = replace(
+            validation,
+            rule_code=f"{field_code.upper()}_REQUIRED",
+            severity="blocking_error",
+            message_vi=f"Bạn chưa nhập {label_vi.strip().lower()}.",
+        )
     return FormField(
         field_code=field_code,
         label_vi=label_vi.strip(),
         group_code=group_code,
         data_type=data_type,
-        required=bool(payload.get("required", False)),
+        required=required,
+        allow_not_applicable=bool(payload.get("allow_not_applicable", False)),
         do_not_infer=bool(payload.get("do_not_infer", True)),
-        validation=_form_field_validation(payload, field_code),
+        validation=validation,
         export=_form_field_export(payload, field_code),
     )
 

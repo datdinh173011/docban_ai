@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
-import { bootstrapSession, deleteSession, streamChat, validateForm } from "./api";
+import { bootstrapSession, deleteSession, getFormSchema, streamChat, updateFormDraft, validateForm } from "./api";
 
 vi.mock("./api", () => ({
   bootstrapSession: vi.fn().mockResolvedValue(undefined),
@@ -35,6 +35,12 @@ describe("App", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getFormSchema).mockResolvedValue({
+      form_code: "BIRTH_REGISTRATION_FORM",
+      title_vi: "Tờ khai đăng ký khai sinh",
+      groups: [],
+      fields: [],
+    });
     localStorage.clear();
     sessionStorage.clear();
     vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -66,6 +72,33 @@ describe("App", () => {
     render(<App />);
     fireEvent.click(screen.getByText(/Rà soát & Kiểm tra đơn/));
     expect(await screen.findByText("Chọn mẫu đơn để rà soát")).toBeInTheDocument();
+  });
+
+  it("marks required fields and saves an explicit not-applicable answer", async () => {
+    vi.mocked(getFormSchema).mockImplementation(async (formCode) => formCode === "PERMANENT_RESIDENCE_CT01_FORM" ? {
+      form_code: formCode,
+      title_vi: "Tờ khai thay đổi thông tin cư trú",
+      groups: [{ group_code: "applicant", label_vi: "Người đề nghị", display_order: 1 }],
+      fields: [{
+        field_code: "applicant_email",
+        label_vi: "Email",
+        group_code: "applicant",
+        data_type: "string",
+        required: true,
+        allow_not_applicable: true,
+        enum_values: null,
+      }],
+    } : { form_code: formCode, title_vi: formCode, groups: [], fields: [] });
+    render(<App />);
+    fireEvent.click(screen.getByText(/Rà soát & Kiểm tra đơn/));
+    fireEvent.click(await screen.findByRole("button", { name: "Tờ khai thay đổi thông tin cư trú" }));
+
+    expect(await screen.findByText("Email")).toHaveTextContent("*");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Không áp dụng" }));
+    await waitFor(() => expect(updateFormDraft).toHaveBeenCalledWith(
+      "PERMANENT_RESIDENCE_CT01_FORM",
+      { applicant_email: "Không áp dụng" },
+    ));
   });
 
   it("opens the review tab and validates once for a review UI action", async () => {

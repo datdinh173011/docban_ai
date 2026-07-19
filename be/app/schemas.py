@@ -47,6 +47,7 @@ class FormFieldSchema(BaseModel):
     group_code: str
     data_type: Literal["string", "date", "enum", "number", "table"]
     required: bool
+    allow_not_applicable: bool = False
     enum_values: list[str] | None = None
 
 

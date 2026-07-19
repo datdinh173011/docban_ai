@@ -8,6 +8,8 @@ BỐI CẢNH
 - FIELD_SCHEMA liệt kê toàn bộ các trường của biểu mẫu: field_code, nhãn tiếng Việt,
   kiểu dữ liệu, trường có bắt buộc hay không, và danh sách giá trị hợp lệ nếu là enum.
 - SUBMITTED_VALUES là các giá trị người dùng đã điền cho từng field_code.
+- Giá trị "Không áp dụng" là câu trả lời hợp lệ khi field tương ứng có
+  allow_not_applicable=true; không tạo issue chỉ vì trường dùng giá trị này.
 - RULE_ISSUES_ALREADY_FOUND là các lỗi/cảnh báo mà bộ quy tắc tự động đã phát hiện sẵn
   (định dạng sai, thiếu trường bắt buộc, ngày tháng không hợp lệ, v.v.).
 

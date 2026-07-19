@@ -15,6 +15,9 @@ BIRTH_FORM = SETTINGS.form_candidates["BIRTH_REGISTRATION_FORM"]
 
 VALID_BIRTH_VALUES = {
     "applicant_full_name": "Nguyễn Văn An",
+    "applicant_birth_date": "1990-01-01",
+    "applicant_residence": "Hà Nội",
+    "applicant_id_document": "012345678901",
     "relationship_to_child": "Cha",
     "child_full_name": "Nguyễn Thị Hồng Ánh",
     "child_birth_date": "2026-01-01",
@@ -22,8 +25,15 @@ VALID_BIRTH_VALUES = {
     "child_ethnicity": "Kinh",
     "child_nationality": "Việt Nam",
     "child_birth_place": "Bệnh viện Phụ sản Hà Nội",
+    "child_hometown": "Hà Nội",
     "mother_full_name": "Trần Thị Bích",
+    "mother_birth_year": "1992",
+    "mother_ethnicity": "Kinh",
+    "mother_nationality": "Việt Nam",
+    "mother_residence": "Hà Nội",
+    "mother_id_document": "012345678902",
     "copy_request_needed": "Không",
+    "copy_count": 0,
 }
 
 
