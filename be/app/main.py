@@ -7,11 +7,12 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import Cookie, FastAPI, HTTPException, Request, Response
+from fastapi import Cookie, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from redis.asyncio import Redis
 from sqlalchemy import text
+from starlette.concurrency import run_in_threadpool
 
 from app.config import Settings, get_settings
 from app.conversation_agent import ConversationAgent
@@ -26,11 +27,33 @@ from app.procedure_pipeline import ProcedurePipeline, ReviewRegistry
 from app.procedure_embeddings import ProcedureEmbeddingClient
 from app.procedure_rag import ProcedureRagService
 from app.procedure_settings import get_procedure_settings
-from app.schemas import AssistantReply, ChatRequest, FormDraftResponse, FormDraftUpdateRequest, FormExportRequest, FormFieldSchema, FormGroupSchema, FormSchemaResponse, ValidationResult
+from app.schemas import (
+    AssistantReply,
+    ChatRequest,
+    FormDraftResponse,
+    FormDraftUpdateRequest,
+    FormExportRequest,
+    FormFieldSchema,
+    FormGroupSchema,
+    FormSchemaResponse,
+    ValidationResult,
+    VoiceStatusResponse,
+    VoiceTranscriptResponse,
+)
 from app.session_store import SessionStore
 from app.translation import TranslationError, TranslationService, VIETNAMESE
+from voice_ai.speech_to_text import SpeechToTextProcessor
 
 logger = logging.getLogger(__name__)
+
+MAX_VOICE_UPLOAD_BYTES = 10 * 1024 * 1024
+VOICE_CLIENT_ERRORS = {
+    "audio_decode_failed",
+    "audio_decode_timeout",
+    "audio_empty",
+    "audio_too_long",
+    "transcript_empty",
+}
 
 
 def sse(event: str, data: dict) -> str:
@@ -52,6 +75,12 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
         app.state.redis = redis_client or Redis.from_url(settings.redis_url, decode_responses=True)
         app.state.store = SessionStore(app.state.redis, settings.session_ttl_seconds)
         app.state.translation_service = TranslationService(settings)
+        app.state.speech_to_text = SpeechToTextProcessor()
+        if not app.state.speech_to_text.preflight():
+            logger.warning(
+                "voice_stt_unavailable reason=%s",
+                app.state.speech_to_text.unavailable_reason,
+            )
         app.state.database = create_database_engine(settings)
         procedure_settings = get_procedure_settings()
         catalog = load_catalog(str(settings.procedure_snapshot_dir), str(settings.procedure_catalog_path) if settings.procedure_catalog_path else None)
@@ -101,6 +130,51 @@ def create_app(settings: Settings | None = None, redis_client: Redis | None = No
     async def health() -> dict[str, str]:
         await app.state.redis.ping()
         return {"status": "ok"}
+
+    @app.get("/api/v1/voice/status", response_model=VoiceStatusResponse)
+    async def voice_status() -> VoiceStatusResponse:
+        return VoiceStatusResponse(available=app.state.speech_to_text.preflight())
+
+    @app.post("/api/v1/voice/transcribe", response_model=VoiceTranscriptResponse)
+    async def transcribe_voice(file: UploadFile = File(...)) -> VoiceTranscriptResponse:
+        processor = app.state.speech_to_text
+        if not processor.preflight():
+            raise HTTPException(status_code=503, detail="voice_unavailable")
+
+        started = time.perf_counter()
+        raw_audio = await file.read(MAX_VOICE_UPLOAD_BYTES + 1)
+        await file.close()
+        if len(raw_audio) > MAX_VOICE_UPLOAD_BYTES:
+            logger.warning(
+                "voice_transcription_rejected error_code=audio_too_large bytes=%d",
+                len(raw_audio),
+            )
+            raise HTTPException(status_code=413, detail="audio_too_large")
+
+        try:
+            transcript = await run_in_threadpool(processor.transcribe, raw_audio)
+        except RuntimeError as exc:
+            error_code = str(exc)
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            logger.warning(
+                "voice_transcription_failed error_code=%s bytes=%d latency_ms=%d",
+                error_code,
+                len(raw_audio),
+                latency_ms,
+            )
+            if error_code in {"ffmpeg_unavailable", "stt_unavailable"}:
+                raise HTTPException(status_code=503, detail="voice_unavailable") from exc
+            if error_code in VOICE_CLIENT_ERRORS:
+                raise HTTPException(status_code=422, detail=error_code) from exc
+            raise
+
+        logger.info(
+            "voice_transcription_complete bytes=%d transcript_chars=%d latency_ms=%d",
+            len(raw_audio),
+            len(transcript),
+            int((time.perf_counter() - started) * 1000),
+        )
+        return VoiceTranscriptResponse(text=transcript)
 
     @app.post("/api/v1/sessions", status_code=204)
     async def create_session(session_id: str | None = Cookie(default=None, alias=settings.session_cookie_name)) -> Response:

@@ -10,6 +10,14 @@ class ChatRequest(BaseModel):
     external_search_consent: bool | None = None
 
 
+class VoiceStatusResponse(BaseModel):
+    available: bool
+
+
+class VoiceTranscriptResponse(BaseModel):
+    text: str
+
+
 class CitationPayload(BaseModel):
     citation_id: str
     knowledge_chunk_id: str

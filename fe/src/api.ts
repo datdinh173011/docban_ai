@@ -64,6 +64,8 @@ export type ValidationResult = {
   validated_at: string;
 };
 
+export type VoiceStatus = { available: boolean };
+
 export class ApiError extends Error {
   constructor(public readonly status: number, public readonly detail: string) {
     super(detail);
@@ -98,6 +100,29 @@ export async function bootstrapSession(): Promise<void> {
 
 export async function deleteSession(): Promise<void> {
   await fetch(`${apiBaseUrl}/v1/sessions/current`, { method: "DELETE", credentials: "include" });
+}
+
+export async function getVoiceStatus(): Promise<VoiceStatus> {
+  const response = await fetch(`${apiBaseUrl}/v1/voice/status`, { credentials: "include" });
+  if (!response.ok) return { available: false };
+  return response.json() as Promise<VoiceStatus>;
+}
+
+export async function transcribeAudio(blob: Blob): Promise<string> {
+  const form = new FormData();
+  form.append("file", blob, "voice-input");
+  const response = await fetch(`${apiBaseUrl}/v1/voice/transcribe`, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { detail?: string };
+    throw new ApiError(response.status, body.detail ?? "voice_transcription_failed");
+  }
+  const body = await response.json() as { text?: string };
+  if (!body.text?.trim()) throw new ApiError(422, "transcript_empty");
+  return body.text.trim();
 }
 
 export async function streamChat(
