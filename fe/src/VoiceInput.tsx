@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, getVoiceStatus, transcribeAudio } from "./api";
 
 const MAX_RECORDING_MS = 60_000;
+const WARNING_AT_SECONDS = 50;
+const MAX_RECORDING_SECONDS = MAX_RECORDING_MS / 1000;
 
 type VoicePhase = "idle" | "recording" | "transcribing";
 
@@ -35,10 +37,17 @@ function errorMessage(error: unknown): string {
   return "Không thể truy cập hoặc xử lý âm thanh từ micro.";
 }
 
+function formatElapsed(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
 export function VoiceInput({ disabled = false, onBusyChange, onTranscript }: VoiceInputProps) {
   const [available, setAvailable] = useState(false);
   const [phase, setPhase] = useState<VoicePhase>("idle");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -73,6 +82,14 @@ export function VoiceInput({ disabled = false, onBusyChange, onTranscript }: Voi
     };
   }, [onBusyChange]);
 
+  useEffect(() => {
+    if (phase !== "recording") return;
+    const interval = window.setInterval(() => {
+      setElapsedSeconds((current) => Math.min(current + 1, MAX_RECORDING_SECONDS));
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [phase]);
+
   function releaseStream() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
@@ -90,6 +107,7 @@ export function VoiceInput({ disabled = false, onBusyChange, onTranscript }: Voi
 
   async function startRecording() {
     setFeedback(null);
+    setElapsedSeconds(0);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (!mountedRef.current) {
@@ -155,28 +173,68 @@ export function VoiceInput({ disabled = false, onBusyChange, onTranscript }: Voi
   if (!available) return null;
 
   const recording = phase === "recording";
-  const label = recording
-    ? "Dừng ghi âm"
-    : phase === "transcribing"
-      ? "Đang chuyển giọng nói thành văn bản"
-      : "Nhập bằng giọng nói";
+  const warning = recording && elapsedSeconds >= WARNING_AT_SECONDS;
+  const remainingSeconds = Math.max(0, MAX_RECORDING_SECONDS - elapsedSeconds);
+  if (recording) {
+    return (
+      <div
+        aria-label="Trạng thái ghi âm"
+        className={`voice-session-bar recording ${warning ? "warning" : ""}`}
+        role="group"
+      >
+        <span className="sr-only" aria-live="polite">
+          {warning ? `Sắp hết thời gian ghi âm. Còn ${remainingSeconds} giây.` : "Đang nghe và ghi âm."}
+        </span>
+        <div className="voice-listening-state">
+          <span className="voice-live-dot" aria-hidden="true" />
+          <div>
+            <strong>{warning ? "Sắp hết thời gian" : "Đang nghe..."}</strong>
+            <span>{warning ? `Còn ${remainingSeconds} giây` : "Hãy nói câu hỏi của bạn"}</span>
+          </div>
+        </div>
+        <div className="voice-wave" aria-hidden="true">
+          <i /><i /><i /><i /><i />
+        </div>
+        <time
+          aria-label={`Đã ghi ${elapsedSeconds} giây trên tổng số 60 giây`}
+          className="voice-timer"
+          dateTime={`PT${elapsedSeconds}S`}
+        >
+          {formatElapsed(elapsedSeconds)} <span>/ 01:00</span>
+        </time>
+        <button aria-label="Dừng ghi âm" className="voice-stop-button" onClick={() => stopRecording()} type="button">
+          <span aria-hidden="true">■</span> Dừng ghi âm
+        </button>
+      </div>
+    );
+  }
+
+  if (phase === "transcribing") {
+    return (
+      <div aria-busy="true" aria-live="polite" className="voice-session-bar processing" role="status">
+        <span className="voice-processing-spinner" aria-hidden="true" />
+        <div>
+          <strong>Đang chuyển giọng nói thành văn bản...</strong>
+          <span>Vui lòng chờ trong giây lát</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="voice-control">
       <button
-        aria-label={label}
-        className={`voice-button ${recording ? "recording" : ""}`}
-        disabled={disabled || phase === "transcribing"}
-        onClick={() => recording ? stopRecording() : void startRecording()}
-        title={label}
+        aria-label="Nhập bằng giọng nói"
+        className="voice-button"
+        disabled={disabled}
+        onClick={() => void startRecording()}
+        title="Nhập bằng giọng nói"
         type="button"
       >
-        {recording ? <span className="recording-dot" /> : (
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z" />
-            <path d="M19 11v1a7 7 0 0 1-14 0v-1M12 19v3M8 22h8" />
-          </svg>
-        )}
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z" />
+          <path d="M19 11v1a7 7 0 0 1-14 0v-1M12 19v3M8 22h8" />
+        </svg>
       </button>
       {feedback && <span className="voice-feedback" role="status">{feedback}</span>}
     </div>
