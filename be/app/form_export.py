@@ -18,9 +18,15 @@ TEMPLATES_DIR = Path(__file__).resolve().with_name("assets") / "form_templates"
 # the deployed container actually uses. ReportLab's own bundled fonts (Vera/Helvetica)
 # lack Vietnamese diacritic glyphs and must never be used for this renderer.
 _FONT_NAME = "NotoSans"
+_FONT_BOLD_NAME = "NotoSans-Bold"
 _FONT_CANDIDATES = (
     Path(__file__).resolve().with_name("assets") / "fonts" / "NotoSans-Regular.ttf",
     Path("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"),
+)
+_FONT_BOLD_CANDIDATES = (
+    Path(__file__).resolve().with_name("assets") / "fonts" / "NotoSans-Bold.ttf",
+    Path("/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf"),
+    Path("/System/Library/Fonts/Supplemental/Arial Bold.ttf"),
 )
 _registered = False
 
@@ -40,6 +46,9 @@ def _ensure_font_registered() -> None:
     if font_path is None:
         raise ExportError(None, "vietnamese_font_missing")
     pdfmetrics.registerFont(TTFont(_FONT_NAME, str(font_path)))
+    bold_candidates = (*_FONT_BOLD_CANDIDATES, _fontconfig_match("Noto Sans:style=Bold"))
+    bold_path = next((path for path in bold_candidates if path and path.is_file()), font_path)
+    pdfmetrics.registerFont(TTFont(_FONT_BOLD_NAME, str(bold_path)))
     _registered = True
 
 
@@ -48,11 +57,11 @@ def ensure_vietnamese_font() -> None:
     _ensure_font_registered()
 
 
-def _fontconfig_match() -> Path | None:
+def _fontconfig_match(pattern: str = "Noto Sans") -> Path | None:
     """Ask Fontconfig for Noto Sans when distributions use a non-Debian path."""
     try:
         result = subprocess.run(
-            ["fc-match", "-f", "%{family}\n%{file}", "Noto Sans"],
+            ["fc-match", "-f", "%{family}\n%{file}", pattern],
             check=True,
             capture_output=True,
             text=True,
@@ -69,7 +78,10 @@ def _format_value(value: object, field: FormField) -> str:
         if isinstance(value, list):
             return "; ".join(", ".join(f"{k}: {v}" for k, v in row.items()) if isinstance(row, dict) else str(row) for row in value)
         return str(value) if value else ""
-    return "" if value is None else str(value)
+    if value is None:
+        return ""
+    suffix = field.export.display_suffix if field.export else ""
+    return f"{value}{suffix}"
 
 
 def _group_fields_by_page(candidate: FormCandidate, values: dict) -> dict[int, list[FormField]]:
@@ -92,10 +104,10 @@ def _wrap_text(text_value: str, width: float, font_size: float) -> list[str] | N
     current = ""
     for word in words:
         candidate = f"{current} {word}".strip()
-        if pdfmetrics.stringWidth(candidate, _FONT_NAME, font_size) <= width:
+        if pdfmetrics.stringWidth(candidate, _FONT_BOLD_NAME, font_size) <= width:
             current = candidate
             continue
-        if not current or pdfmetrics.stringWidth(word, _FONT_NAME, font_size) > width:
+        if not current or pdfmetrics.stringWidth(word, _FONT_BOLD_NAME, font_size) > width:
             return None
         lines.append(current)
         current = word
@@ -103,13 +115,28 @@ def _wrap_text(text_value: str, width: float, font_size: float) -> list[str] | N
     return lines
 
 
+def _truncate_text(text_value: str, width: float, font_size: float) -> str:
+    if pdfmetrics.stringWidth(text_value, _FONT_BOLD_NAME, font_size) <= width:
+        return text_value
+    ellipsis = "…"
+    if pdfmetrics.stringWidth(ellipsis, _FONT_BOLD_NAME, font_size) > width:
+        raise ExportError(None, "text_exceeds_field_width")
+    low, high = 0, len(text_value)
+    while low < high:
+        middle = (low + high + 1) // 2
+        candidate = f"{text_value[:middle].rstrip()}{ellipsis}"
+        if pdfmetrics.stringWidth(candidate, _FONT_BOLD_NAME, font_size) <= width:
+            low = middle
+        else:
+            high = middle - 1
+    return f"{text_value[:low].rstrip()}{ellipsis}"
+
+
 def _fit_lines(text_value: str, field: FormField) -> tuple[list[str], float]:
     export = field.export
     assert export is not None
-    if export.overflow_policy == "reject":
-        if pdfmetrics.stringWidth(text_value, _FONT_NAME, export.font_size) > export.width:
-            raise ExportError(field.field_code, "text_exceeds_field_width")
-        return [text_value], export.font_size
+    if export.truncate_overflow or export.overflow_policy == "reject":
+        return [_truncate_text(text_value, export.width, export.font_size)], export.font_size
 
     font_size = export.font_size
     while font_size >= export.min_font_size:
@@ -123,7 +150,13 @@ def _fit_lines(text_value: str, field: FormField) -> tuple[list[str], float]:
 def _draw_lines(canvas_obj: canvas.Canvas, field: FormField, lines: list[str], font_size: float) -> None:
     export = field.export
     assert export is not None
-    canvas_obj.setFont(_FONT_NAME, font_size)
+    if export.mask_width:
+        rendered_width = max(pdfmetrics.stringWidth(line, _FONT_BOLD_NAME, font_size) for line in lines)
+        mask_width = min(export.mask_width, rendered_width + 2)
+        canvas_obj.setFillColorRGB(1, 1, 1)
+        canvas_obj.rect(export.x, export.y - 2, mask_width, font_size + 4, fill=1, stroke=0)
+        canvas_obj.setFillColorRGB(0, 0, 0)
+    canvas_obj.setFont(_FONT_BOLD_NAME, font_size)
     for index, line in enumerate(lines):
         y = export.y - (index * export.line_height)
         if export.align == "right":

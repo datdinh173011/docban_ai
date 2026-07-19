@@ -65,6 +65,9 @@ class FormFieldExport:
     max_lines: int
     line_height: float
     min_font_size: float
+    mask_width: float
+    display_suffix: str
+    truncate_overflow: bool
 
 
 @dataclass(frozen=True)
@@ -230,6 +233,9 @@ def _form_field_export(payload: dict[str, Any], field_code: str) -> FormFieldExp
         max_lines = int(export.get("max_lines", 1))
         line_height = float(export.get("line_height", export["font_size"]))
         min_font_size = float(export.get("min_font_size", export["font_size"]))
+        mask_width = float(export.get("mask_width", 0))
+        display_suffix = str(export.get("display_suffix", ""))
+        truncate_overflow = bool(export.get("truncate_overflow", False))
         if (
             align not in _ALIGNS
             or overflow_policy not in _OVERFLOW_POLICIES
@@ -238,6 +244,8 @@ def _form_field_export(payload: dict[str, Any], field_code: str) -> FormFieldExp
             or min_font_size <= 0
             or min_font_size > float(export["font_size"])
             or max_lines * line_height > float(export["height"])
+            or mask_width < 0
+            or mask_width > float(export["width"])
             or (overflow_policy == "reject" and max_lines != 1)
         ):
             raise ValueError(f"form_field_export_invalid:{field_code}")
@@ -247,6 +255,8 @@ def _form_field_export(payload: dict[str, Any], field_code: str) -> FormFieldExp
             font_family=str(export["font_family"]), font_size=float(export["font_size"]),
             align=align, format=str(export["format"]), overflow_policy=overflow_policy,
             max_lines=max_lines, line_height=line_height, min_font_size=min_font_size,
+            mask_width=mask_width, display_suffix=display_suffix,
+            truncate_overflow=truncate_overflow,
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError(f"form_field_export_invalid:{field_code}") from exc

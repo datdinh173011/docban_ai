@@ -965,14 +965,14 @@
             "suggestion_vi": null
           },
           "export": {
-            "page": 2,
-            "x": 160.0,
-            "y": 40.0,
-            "width": 40.0,
+            "page": 1,
+            "x": 116.0,
+            "y": 25.2,
+            "width": 20.0,
             "height": 14,
             "font_family": "NotoSans",
-            "font_size": 10,
-            "align": "left",
+            "font_size": 9,
+            "align": "center",
             "format": "text",
             "overflow_policy": "reject"
           }
@@ -1493,7 +1493,7 @@
             "page": 1,
             "x": 279.8,
             "y": 555.6,
-            "width": 220.0,
+            "width": 106.0,
             "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
@@ -1502,7 +1502,9 @@
             "overflow_policy": "wrap",
             "max_lines": 2,
             "line_height": 8,
-            "min_font_size": 7
+            "min_font_size": 7,
+            "truncate_overflow": true,
+            "mask_width": 106.0
           }
         },
         {
@@ -1524,9 +1526,9 @@
           },
           "export": {
             "page": 1,
-            "x": 167.2,
+            "x": 198.0,
             "y": 534.7,
-            "width": 220.0,
+            "width": 31.0,
             "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
@@ -1535,7 +1537,9 @@
             "overflow_policy": "wrap",
             "max_lines": 2,
             "line_height": 8,
-            "min_font_size": 7
+            "min_font_size": 7,
+            "truncate_overflow": true,
+            "mask_width": 31.0
           }
         },
         {
@@ -1557,15 +1561,16 @@
           },
           "export": {
             "page": 1,
-            "x": 462.1,
+            "x": 466.0,
             "y": 534.7,
-            "width": 93.9,
+            "width": 86.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 86.0
           }
         },
         {
@@ -1587,9 +1592,9 @@
           },
           "export": {
             "page": 1,
-            "x": 165.4,
+            "x": 166.0,
             "y": 513.7,
-            "width": 220.0,
+            "width": 41.0,
             "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
@@ -1598,7 +1603,9 @@
             "overflow_policy": "wrap",
             "max_lines": 2,
             "line_height": 8,
-            "min_font_size": 7
+            "min_font_size": 7,
+            "truncate_overflow": true,
+            "mask_width": 41.0
           }
         },
         {
@@ -1620,9 +1627,9 @@
           },
           "export": {
             "page": 1,
-            "x": 262.3,
+            "x": 263.0,
             "y": 513.7,
-            "width": 220.0,
+            "width": 37.0,
             "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
@@ -1631,7 +1638,9 @@
             "overflow_policy": "wrap",
             "max_lines": 2,
             "line_height": 8,
-            "min_font_size": 7
+            "min_font_size": 7,
+            "truncate_overflow": true,
+            "mask_width": 37.0
           }
         },
         {
@@ -1653,15 +1662,16 @@
           },
           "export": {
             "page": 1,
-            "x": 423.7,
+            "x": 392.0,
             "y": 513.7,
-            "width": 132.3,
+            "width": 72.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 72.0
           }
         },
         {
@@ -1685,13 +1695,14 @@
             "page": 1,
             "x": 155.8,
             "y": 492.8,
-            "width": 220.0,
+            "width": 306.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 306.0
           }
         },
         {
@@ -1715,13 +1726,14 @@
             "page": 1,
             "x": 128.0,
             "y": 429.9,
-            "width": 220.0,
+            "width": 132.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 132.0
           }
         },
         {
@@ -1743,15 +1755,16 @@
           },
           "export": {
             "page": 1,
-            "x": 312.5,
+            "x": 314.0,
             "y": 429.9,
-            "width": 220.0,
+            "width": 40.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 40.0
           }
         },
         {
@@ -1773,9 +1786,9 @@
           },
           "export": {
             "page": 1,
-            "x": 100.0,
+            "x": 136.0,
             "y": 391.0,
-            "width": 440.0,
+            "width": 110.0,
             "height": 24,
             "font_size": 9,
             "font_family": "NotoSans",
@@ -1784,7 +1797,8 @@
             "overflow_policy": "wrap",
             "max_lines": 3,
             "line_height": 8,
-            "min_font_size": 7
+            "min_font_size": 7,
+            "truncate_overflow": true
           }
         },
         {
@@ -1808,7 +1822,7 @@
             "page": 1,
             "x": 192.8,
             "y": 304.2,
-            "width": 220.0,
+            "width": 45.0,
             "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
@@ -1817,7 +1831,9 @@
             "overflow_policy": "wrap",
             "max_lines": 2,
             "line_height": 8,
-            "min_font_size": 7
+            "min_font_size": 7,
+            "truncate_overflow": true,
+            "mask_width": 45.0
           }
         },
         {
@@ -1839,15 +1855,16 @@
           },
           "export": {
             "page": 1,
-            "x": 421.2,
+            "x": 389.0,
             "y": 304.2,
-            "width": 134.8,
+            "width": 82.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 82.0
           }
         },
         {
@@ -1871,7 +1888,7 @@
             "page": 1,
             "x": 192.8,
             "y": 241.4,
-            "width": 220.0,
+            "width": 55.0,
             "height": 16,
             "font_family": "NotoSans",
             "font_size": 10,
@@ -1880,7 +1897,9 @@
             "overflow_policy": "wrap",
             "max_lines": 2,
             "line_height": 8,
-            "min_font_size": 7
+            "min_font_size": 7,
+            "truncate_overflow": true,
+            "mask_width": 55.0
           }
         },
         {
@@ -1902,15 +1921,16 @@
           },
           "export": {
             "page": 1,
-            "x": 431.0,
+            "x": 399.0,
             "y": 241.4,
-            "width": 125.0,
+            "width": 72.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 72.0
           }
         },
         {
@@ -1934,13 +1954,14 @@
             "page": 2,
             "x": 164.5,
             "y": 297.1,
-            "width": 220.0,
+            "width": 73.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 73.0
           }
         },
         {
@@ -1964,13 +1985,14 @@
             "page": 2,
             "x": 157.8,
             "y": 276.1,
-            "width": 220.0,
+            "width": 38.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 38.0
           }
         },
         {
@@ -1992,15 +2014,16 @@
           },
           "export": {
             "page": 2,
-            "x": 141.7,
+            "x": 192.0,
             "y": 255.2,
-            "width": 220.0,
+            "width": 25.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 25.0
           }
         },
         {
@@ -2022,15 +2045,16 @@
           },
           "export": {
             "page": 2,
-            "x": 218.8,
+            "x": 279.0,
             "y": 234.2,
-            "width": 220.0,
+            "width": 34.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 34.0
           }
         },
         {
@@ -2052,15 +2076,16 @@
           },
           "export": {
             "page": 2,
-            "x": 183.6,
+            "x": 180.0,
             "y": 213.3,
-            "width": 220.0,
+            "width": 42.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 42.0
           }
         },
         {
@@ -2084,13 +2109,14 @@
             "page": 2,
             "x": 195.9,
             "y": 177.4,
-            "width": 220.0,
+            "width": 23.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 23.0
           }
         },
         {
@@ -2112,15 +2138,17 @@
           },
           "export": {
             "page": 2,
-            "x": 126.6,
+            "x": 124.0,
             "y": 141.5,
-            "width": 220.0,
+            "width": 42.0,
             "height": 14,
             "font_family": "NotoSans",
-            "font_size": 10,
+            "font_size": 9,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 34.6,
+            "display_suffix": " (trong "
           }
         },
         {
@@ -2142,15 +2170,16 @@
           },
           "export": {
             "page": 4,
-            "x": 301.1,
+            "x": 304.0,
             "y": 665.1,
-            "width": 220.0,
+            "width": 128.0,
             "height": 14,
             "font_family": "NotoSans",
             "font_size": 10,
             "align": "left",
             "format": "text",
-            "overflow_policy": "reject"
+            "overflow_policy": "reject",
+            "mask_width": 128.0
           }
         },
         {
